@@ -1,16 +1,57 @@
 import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from google.cloud import firestore
+import os
+
+
+# Inicializar Firestore
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "firebase-key.json"
+db = firestore.Client()
+
 
 app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOZCrNXiKnJyWj5KZAlzcZAvt89XZBmZAfRKIy87d2OsScRkIRwNOUgcVHpzFuiztqFwzOluWIbSlFcBFiKT89zQlu7TzaMn5jTJdP26v3TrOUZBBGJv7L9wWrVDqXlkyBBBcroyCmiGjImqB6ZAnHij5rUOvphRJni1qaj7346ZAUeHSUv4mU5JHgfq9ro8rNUo8xw1msGkCNZC1y4PigEHZAJ5ZBEZD"
+access_token = "EAATXaSQjmX8BO66oNkmA6KJgXE47yuNgdbgobGEWjUmqjtDLsdg2Qu1fZCrSF0xkhTWL1ieEwLeydJCGmQdR3AWS7f6FtMxJGOvFIzrBwf76gZAO9QZBmi5DVIIpYeBmO0QMDjZADq6oDwTCeZBq1BhMtWV8hdAidNfSfUlrGRFyHY33znH3OW23CgJC7UOZBZCvZBplhXCnd3N7fuRqPH6Sv2s5TkbRhrSAdF8ZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
 user_state = {}
+
+evento = "Culto"
+data = "15"
+hora = "20"
+local = "Auditório 1"
+nome = "Carlos"
+
+# Função para salvar mensagens no Firestore com campos separados
+def save_message_to_firestore(sender_id, message_type, **kwargs):
+    try:
+        evento = kwargs.get("evento", "")
+        data = kwargs.get("data", "")
+        hora = kwargs.get("hora", "")
+        local = kwargs.get("local", "")
+        nome = kwargs.get("nome", "")
+        message_text = kwargs.get("message_text", "")
+
+        doc_ref = db.collection("mensagens").document()
+        doc_ref.set({
+            "sender_id": sender_id,
+            "evento": evento,
+            "data": data,
+            "hora": hora,
+            "local": local,
+            "nome": nome,
+            "message_text": message_text,
+            "type": message_type,  # "received" ou "sent"
+            "timestamp": firestore.SERVER_TIMESTAMP
+        })
+        print("Mensagem salva no Firestore!")
+    except Exception as e:
+        print(f"Erro ao salvar no Firestore: {e}")
+
 
 # Template 1
 def send_message_to_whatsapp():
@@ -19,6 +60,7 @@ def send_message_to_whatsapp():
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
+
 
     message_data = {
         "messaging_product": "whatsapp",
@@ -33,11 +75,11 @@ def send_message_to_whatsapp():
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": "Culto"},
-                        {"type": "text", "text": "15"},
-                        {"type": "text", "text": "20"},
-                        {"type": "text", "text": "Auditório 1"},
-                        {"type": "text", "text": "Carlos"}
+                        {"type": "text", "text": evento},
+                        {"type": "text", "text": data},
+                        {"type": "text", "text": hora},
+                        {"type": "text", "text": local},
+                        {"type": "text", "text": nome}
                     ]
                 }
             ]
@@ -48,6 +90,8 @@ def send_message_to_whatsapp():
 
     if response.status_code == 200:
         print("Template 1 enviado com sucesso!")
+        save_message_to_firestore("15551910903", "sent", evento=evento, data=data, hora=hora, local=local, nome=nome)
+
     else:
         print("Erro ao enviar a mensagem inicial:", response.json())
 
@@ -74,10 +118,10 @@ def reply_to_whatsapp_message(recipient_id, message_text):
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": "Carlos"},
-                            {"type": "text", "text": "15"},
-                            {"type": "text", "text": "20"},
-                            {"type": "text", "text": "Auditório 1"}
+                            {"type": "text", "text": nome},
+                            {"type": "text", "text": data},
+                            {"type": "text", "text": hora},
+                            {"type": "text", "text": local}
                         ]
                     }
                 ]
@@ -95,13 +139,20 @@ def reply_to_whatsapp_message(recipient_id, message_text):
                 "body": "Ok. Obrigada pela resposta."
             }
         }
+        #save_message_to_firestore(recipient_id, "sent", "Ok. Obrigada pela resposta.")
+        save_message_to_firestore(recipient_id, "sent", message_text="Ok. Obrigada pela resposta.")
+
 
     response = requests.post(url, headers=headers, json=message_data)
 
-    if response.status_code == 200:
+    if response.status_code == 200 and message_text.lower() != "ok":
         print("Resposta enviada com sucesso!")
+        save_message_to_firestore("15551910903", "sent", nome=nome, data=data, hora=hora, local=local)
     else:
         print("Erro ao enviar a resposta:", response.json())
+
+
+
 
 
 
@@ -128,10 +179,10 @@ def template3(recipient_id, message_text):
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": "Carlos"},
-                        {"type": "text", "text": "15"},
-                        {"type": "text", "text": "20"},
-                        {"type": "text", "text": "Auditório 1"}
+                        {"type": "text", "text": nome},
+                        {"type": "text", "text": data},
+                        {"type": "text", "text": hora},
+                        {"type": "text", "text": local}
                     ]
                 }
             ]
@@ -154,6 +205,8 @@ def template3(recipient_id, message_text):
 
     if response.status_code == 200:
         print("Resposta enviada com sucesso!")
+        #save_message_to_firestore("15551910903", "sent", nome, data, hora, local, )
+        save_message_to_firestore("15551910903", "sent", nome=nome, data=data, hora=hora, local=local)
     else:
         print("Erro ao enviar a resposta:", response.json())
 
@@ -180,9 +233,9 @@ def template4(recipient_id):
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": "Carlos"},
-                        {"type": "text", "text": "20"},
-                        {"type": "text", "text": "Auditório 1"}
+                        {"type": "text", "text": nome},
+                        {"type": "text", "text": data},
+                        {"type": "text", "text": local}
                     ]
                 }
             ]
@@ -193,6 +246,8 @@ def template4(recipient_id):
 
     if response.status_code == 200:
         print("Template 4 enviado com sucesso!")
+        #save_message_to_firestore("15551910903", "sent" ,nome, data, local, "sent")
+        save_message_to_firestore("15551910903", "sent", nome=nome, data=data, local=local)
     else:
         print("Erro ao enviar Template 4:", response.json())
 
@@ -202,8 +257,6 @@ def template4(recipient_id):
 
 
 
-
-# Função de verificação do botão e envio do template 3
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
@@ -219,37 +272,28 @@ def webhook():
             for entry in data["entry"]:
                 if "changes" in entry:
                     for change in entry["changes"]:
-                        if "value" in change and "messages" in change["value"]:
-                            message = change["value"]["messages"][0]
-                            sender_id = message["from"]
-
-                            # Checar se a mensagem contém um botão e capturar o payload
-                            if message.get("button"):
-                                button_payload = message["button"].get("payload")
-                                print(f"Payload do botão recebido: {button_payload}")
-
-                                # Verifique o payload do botão para continuar a conversa
-                                if user_state.get(sender_id) == "awaiting_template2_response" and button_payload == "Tudo certo!":
-                                    print(f"Enviando Template 3 para o usuário {sender_id}")
-                                    message_text = "Tudo certo!"  # Ou capture a resposta do botão diretamente, se for o caso.
-                                    template3(sender_id, message_text)
-                                
-                                    # Limpar o estado do usuário após enviar o Template 3
-                                    user_state[sender_id] = "awaiting_template3_response"
-
-                                elif user_state.get(sender_id) == "awaiting_template3_response":
-                                    print(f"Enviando Template 4 para o usuário {sender_id}")
-                                    template4(sender_id)
-    
-                                    # Limpar o estado após enviar o Template 4
-                                    user_state[sender_id] = None
+                        if "messages" in change["value"]:
+                            for message in change["value"]["messages"]:
+                                sender_id = message["from"]
+                                message_text = message.get("text", {}).get("body", "")
+                                # Verificar se há um botão
+                                if "button" in message:
+                                    button_payload = message["button"].get("payload")
+                                    if button_payload:
+                                        print(f"Payload do botão recebido: {button_payload}")
+                                        save_message_to_firestore(sender_id, "received",button_payload=button_payload)
+                                        # Continuar a lógica com base no payload
+                                        if user_state.get(sender_id) == "awaiting_template2_response" and button_payload == "Tudo certo!":
+                                            template3(sender_id, "Tudo certo!")
+                                            user_state[sender_id] = "awaiting_template3_response"
+                                        elif user_state.get(sender_id) == "awaiting_template3_response":
+                                            template4(sender_id)
+                                            user_state[sender_id] = None
                                 else:
-                                    print(f"O estado do usuário {sender_id} não está correto ou o botão pressionado não corresponde.")
-                            else:
-                                # Aqui tratamos mensagens digitadas normalmente
-                                message_text = message.get("text", {}).get("body", "").lower()
-                                print(f"Mensagem recebida: {message_text}")
-                                reply_to_whatsapp_message(sender_id, message_text)
+                                    message_text = message.get("text", {}).get("body", "").lower()
+                                    save_message_to_firestore(sender_id, "received", message_text=message_text)
+                                    reply_to_whatsapp_message(sender_id, message_text)
+
         
         return jsonify({"status": "received"}), 200
 
