@@ -35,6 +35,7 @@ def save_message_to_firestore(sender_id, message_type, **kwargs):
         local = kwargs.get("local", "")
         nome = kwargs.get("nome", "")
         message_text = kwargs.get("message_text", "")
+        button_payload = kwargs.get("button_payload", "")  # Adiciona este campo
 
         doc_ref = db.collection("mensagens").document()
         doc_ref.set({
@@ -45,12 +46,14 @@ def save_message_to_firestore(sender_id, message_type, **kwargs):
             "local": local,
             "nome": nome,
             "message_text": message_text,
+            "button_payload": button_payload,  # Salvando o payload do botão
             "type": message_type,  # "received" ou "sent"
             "timestamp": firestore.SERVER_TIMESTAMP
         })
         print("Mensagem salva no Firestore!")
     except Exception as e:
         print(f"Erro ao salvar no Firestore: {e}")
+
 
 
 #Template 1
