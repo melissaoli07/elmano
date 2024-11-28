@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOx7rjoj3CVROCsUYc5jRaFPT3nNv0WNTpvQIsHXQ5ZCjS09aK0MiQxg0ynUnlh57hMxqTag95yDlvZA0RsiCuLVVd3alb5vcaZB4QcZAFWLqsoOOBJSDIfsQ7JxwblSXEia4kc7tpm1BDn7GECDr0JudBN2Ahe8jFgPsRNtftoLUoXzcpwoaEFCXs2OjfHZASWqFnd852BbdLZAjwZCHfNVK8kZD"
+access_token = "EAATXaSQjmX8BO1KE0fczIRNjk5HZCz5piPr3zJnGqKvTWZBzJU9rrkeJTFB7AcgrDDAMHRTfRDgPgBiaDTZCE0jT7gDBSaOH8YpmlKBU1m20EyfwFcMWZBIVLcUqXfHk39jkbu9u8Jmx6lGwNHTmvPpe9ONPxZBjbDly8fsOki6zFOEXs7g4BlW1CsLWZCWamZATsaxcZCTKWfQvJAQSDZBfVGssk6bfZBEKnZBbScZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -27,7 +27,7 @@ local = "Auditório 1"
 nome = "Carlos"
 
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(sender_id, message_type, **kwargs):
+def save_message_to_firestore(sender_id, message_type, recipient_id,**kwargs):
     try:
         evento = kwargs.get("evento", "")
         data = kwargs.get("data", "")
@@ -37,9 +37,14 @@ def save_message_to_firestore(sender_id, message_type, **kwargs):
         message_text = kwargs.get("message_text", "")
         button_payload = kwargs.get("button_payload", "")  # Adiciona este campo
 
+
+
+
+
         doc_ref = db.collection("mensagens").document()
         doc_ref.set({
             "sender_id": sender_id,
+            "recipient_id": recipient_id or "",
             "evento": evento,
             "data": data,
             "hora": hora,
@@ -114,7 +119,7 @@ def send_message_to_whatsapp():
 
     if response.status_code == 200:
         print("Template 1 enviado com sucesso!")
-        save_message_to_firestore("15551910903", "sent", evento=evento, data=data, hora=hora, local=local, nome=nome)
+        save_message_to_firestore("15551910903", "sent", "5511950404471", evento=evento, data=data, hora=hora, local=local, nome=nome)
     else:
         print("Erro ao enviar a mensagem inicial:", response.json())
 
@@ -171,10 +176,10 @@ def reply_to_whatsapp_message(recipient_id, button_payload):
 
     if response.status_code == 200 and button_payload == "sim":
         print("Resposta enviada com sucesso!")
-        save_message_to_firestore("15551910903", "sent", nome=nome, data=data, hora=hora, local=local)
+        save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local)
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
-        save_message_to_firestore("15551910903", "sent", message_text="Ok. Obrigada pela resposta.")
+        save_message_to_firestore("15551910903", "sent", "5511950404471", message_text="Ok. Obrigada pela resposta.")
     else:
         print("Erro ao enviar a resposta:", response.json())
 
@@ -230,7 +235,7 @@ def template3(recipient_id, message_text):
     if response.status_code == 200:
         print("Resposta enviada com sucesso!")
         #save_message_to_firestore("15551910903", "sent", nome, data, hora, local, )
-        save_message_to_firestore("15551910903", "sent", nome=nome, data=data, hora=hora, local=local)
+        save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local)
     else:
         print("Erro ao enviar a resposta:", response.json())
 
@@ -271,7 +276,7 @@ def template4(recipient_id):
     if response.status_code == 200:
         print("Template 4 enviado com sucesso!")
         #save_message_to_firestore("15551910903", "sent" ,nome, data, local, "sent")
-        save_message_to_firestore("15551910903", "sent", nome=nome, data=data, local=local)
+        save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local)
     else:
         print("Erro ao enviar Template 4:", response.json())
 
@@ -299,13 +304,16 @@ def webhook():
                         if "messages" in change["value"]:
                             for message in change["value"]["messages"]:
                                 sender_id = message["from"]
+                                sender_id = message["from"]  # Número do remetente
+                                recipient_id = change["value"].get("metadata", {}).get("display_phone_number")   
                                 message_text = message.get("text", {}).get("body", "")
                                 # Verificar se há um botão
                                 if "button" in message:
                                     button_payload = message["button"].get("payload")
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
-                                        save_message_to_firestore(sender_id, "received", button_payload=button_payload)
+                                        #save_message_to_firestore(sender_id, "received", button_payload=button_payload)
+                                        save_message_to_firestore(sender_id, "received", recipient_id, button_payload=button_payload)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(sender_id, button_payload)
                                         # Continuar a lógica com base no payload
@@ -323,7 +331,8 @@ def webhook():
                                             #user_state[sender_id] = "awaiting_template2_response"
                                 else:
                                     message_text = message.get("text", {}).get("body", "").lower()
-                                    save_message_to_firestore(sender_id, "received", message_text=message_text)
+                                    #save_message_to_firestore(sender_id, "received", message_text=message_text)
+                                    save_message_to_firestore(sender_id, "received", recipient_id, message_text=message_text)
                                     reply_to_whatsapp_message(sender_id, message_text)
 
         return jsonify({"status": "received"}), 200
