@@ -46,14 +46,17 @@ def save_message_to_firestore(sender, status, recipient, evento, data, hora, loc
         # Referência à coleção de mensagens
         doc_ref = db.collection("mensagens").document()
         doc_ref.set({
-            "sender": sender,
-            "status": status,
-            "recipient": recipient,
+            #"sender_id": sender_id,
+            #"recipient_id": recipient_id or "",
             "evento": evento,
             "data": data,
             "hora": hora,
             "local": local,
-            "nome": nome
+            "nome": nome,
+            #"message_text": message_text,
+            #"button_payload": button_payload,  # Salvando o payload do botão
+            #"type": message_type,  # "received" ou "sent"
+            "timestamp": firestore.SERVER_TIMESTAMP
         })
         print("Mensagem salva com sucesso!")
     except Exception as e:
