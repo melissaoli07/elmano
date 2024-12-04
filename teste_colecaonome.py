@@ -12,9 +12,11 @@ db = firestore.Client()
 
 app = Flask(__name__)
 CORS(app)
+
 # Definição de variáveis de configuração (substitua pelos valores reais)
-access_token = "EAATXaSQjmX8BO0IutBxdEqVaH3uZAxCVkBBm0sUJeHmNZClGSbosY2iCxOZBtx8jrQrGiLPNGRwdS6ncAxs3aAOIY6ZCcuPIbuRqhBk3Vya8mOMmZBTDM4QSru7B6LQkHrxnaDTLT02IfNix1U38PzE7JNlPSZBGjda4jyJWR1aR6r5VtvFB94w9Pjbkf2XBzOWFnxpqoNApGpJ2ks4pwIwW0zoyrWPgwxWJEZD"
+access_token = "EAATXaSQjmX8BO0S1nNjjwpJkFUZB7yCZCEts4ivvfhNZASQpfLGJ7H9RIB3s7QTl6cJAfwbMdVx2JQIJIZAq7C1TJDnqgXL8MkHp5tUNaZBiycAezZBCauugFsNQZAo9dIhZBP5eO265AeYjpT0848oiHNkW63KZBb8PjcaYaVresQ52b0J9vUcQvU269XBeRMnrdB3DHvhDddzCyM95OMZA22I0zK6zqExlQedRoZD"
 phone_number_id = "434398029764267"
+
 
 # Função para buscar dados de um evento no Firestore
 def get_event_data(event_id):
@@ -26,12 +28,17 @@ def get_event_data(event_id):
         if doc.exists:
             data = doc.to_dict()
             print("Dados do evento encontrados:", data)
+
+            # Obter o ID ou referência para buscar o nome em outra coleção
+            nome_id = data.get("nome_id", "")
+            nome = get_nome_from_another_collection(nome_id) if nome_id else ""
+
             return {
                 "evento": data.get("evento", ""),
                 "data": data.get("data", ""),
                 "hora": data.get("hora", ""),
                 "local": data.get("local", ""),
-                "nome": data.get("nome", "")
+                "nome": nome
             }
         else:
             print("Documento não encontrado!")
@@ -40,28 +47,45 @@ def get_event_data(event_id):
         print(f"Erro ao buscar dados no Firestore: {e}")
         return None
 
+
+# Função para buscar o nome na coleção "voluntários"
+def get_nome_from_another_collection(nome_id):
+    try:
+        # Referência ao documento na coleção "voluntários"
+        doc_ref = db.collection("voluntários").document(nome_id)
+        doc = doc_ref.get()
+
+        if doc.exists:
+            nome_data = doc.to_dict()
+            nome = nome_data.get("nome", "")  # Acessa o nome do voluntário
+            print(f"Nome encontrado: {nome}")
+            return nome
+        else:
+            print("Documento do nome não encontrado!")
+            return ""
+    except Exception as e:
+        print(f"Erro ao buscar nome na coleção 'voluntários': {e}")
+        return ""
+
+
 # Função para salvar a mensagem no Firestore
 def save_message_to_firestore(sender, status, recipient, evento, data, hora, local, nome, event_id):
     try:
         # Referência à coleção de mensagens
         doc_ref = db.collection("mensagens").document()
         doc_ref.set({
-            #"sender_id": sender_id,
-            #"recipient_id": recipient_id or "",
             "evento": evento,
             "data": data,
             "hora": hora,
             "local": local,
             "nome": nome,
             "event_id": event_id,
-            #"message_text": message_text,
-            #"button_payload": button_payload,  # Salvando o payload do botão
-            #"type": message_type,  # "received" ou "sent"
             "timestamp": firestore.SERVER_TIMESTAMP
         })
         print("Mensagem salva com sucesso!")
     except Exception as e:
         print(f"Erro ao salvar a mensagem no Firestore: {e}")
+
 
 # Função para enviar mensagem via WhatsApp
 def send_message_to_whatsapp(event_id):
@@ -135,8 +159,9 @@ def send_message_to_whatsapp(event_id):
     else:
         print("Erro ao enviar a mensagem inicial:", response.json())
 
+
 # Rodando o Flask (se necessário)
 if __name__ == "__main__":
-    event_id = "1"  # Substitua pelo ID real
+    event_id = "2"  # Substitua pelo ID real
     send_message_to_whatsapp(event_id)
     # app.run(debug=False, port=5000)  # Se estiver usando o Flask

@@ -20,26 +20,36 @@ phone_number_id = "434398029764267"
 # Armazenamento do estado da conversa para cada usuário
 user_state = {}
 
-evento = "Culto"
-data = "15"
-hora = "20"
-local = "Auditório 1"
-nome = "Carlos"
+
+# Função para buscar dados de um evento no Firestore
+def get_event_data(event_id):
+    try:
+        # Referência ao documento no Firestore
+        doc_ref = db.collection("evento").document(event_id)
+        doc = doc_ref.get()
+
+        if doc.exists:
+            data = doc.to_dict()
+            print("Dados do evento encontrados:", data)
+            return {
+                "evento": data.get("evento", ""),
+                "data": data.get("data", ""),
+                "hora": data.get("hora", ""),
+                "local": data.get("local", ""),
+                "nome": data.get("nome", "")
+            }
+        else:
+            print("Documento não encontrado!")
+            return None
+    except Exception as e:
+        print(f"Erro ao buscar dados no Firestore: {e}")
+        return None
+
+
 
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(sender_id, message_type, recipient_id,**kwargs):
+def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, hora, local, nome):
     try:
-        evento = kwargs.get("evento", "")
-        data = kwargs.get("data", "")
-        hora = kwargs.get("hora", "")
-        local = kwargs.get("local", "")
-        nome = kwargs.get("nome", "")
-        message_text = kwargs.get("message_text", "")
-        button_payload = kwargs.get("button_payload", "")  # Adiciona este campo
-
-
-
-
 
         doc_ref = db.collection("mensagens").document()
         doc_ref.set({
@@ -50,6 +60,7 @@ def save_message_to_firestore(sender_id, message_type, recipient_id,**kwargs):
             "hora": hora,
             "local": local,
             "nome": nome,
+            "event_id": event_id,
             "message_text": message_text,
             "button_payload": button_payload,  # Salvando o payload do botão
             "type": message_type,  # "received" ou "sent"
@@ -62,7 +73,20 @@ def save_message_to_firestore(sender_id, message_type, recipient_id,**kwargs):
 
 
 #Template 1
-def send_message_to_whatsapp():
+def send_message_to_whatsapp(event_id):
+    # Buscar os dados do evento no Firestore
+    event_data = get_event_data(event_id)
+    if not event_data:
+        print("Erro: Não foi possível obter os dados do evento.")
+        return
+
+    # Variáveis do evento
+    evento = event_data["evento"]
+    data = event_data["data"]
+    hora = event_data["hora"]
+    local = event_data["local"]
+    nome = event_data["nome"]
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -119,13 +143,33 @@ def send_message_to_whatsapp():
 
     if response.status_code == 200:
         print("Template 1 enviado com sucesso!")
-        save_message_to_firestore("15551910903", "sent", "5511950404471", evento=evento, data=data, hora=hora, local=local, nome=nome)
+        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", 
+        event_data['evento'],
+        event_data['data'],    
+        event_data['hora'],    
+        event_data['local'],   
+        event_data['nome'])
     else:
         print("Erro ao enviar a mensagem inicial:", response.json())
 
 
 # Template 2
-def reply_to_whatsapp_message(recipient_id, button_payload):
+def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
+
+    # Buscar os dados do evento no Firestore
+    event_data = get_event_data(event_id)
+    if not event_data:
+        print("Erro: Não foi possível obter os dados do evento.")
+        return
+
+    # Variáveis do evento
+    evento = event_data["evento"]
+    data = event_data["data"]
+    hora = event_data["hora"]
+    local = event_data["local"]
+    nome = event_data["nome"]
+
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -176,7 +220,11 @@ def reply_to_whatsapp_message(recipient_id, button_payload):
 
     if response.status_code == 200 and button_payload == "sim":
         print("Resposta enviada com sucesso!")
-        save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local)
+        save_message_to_firestore(event_id,"15551910903", "sent", "5511950404471", "message_text", "button_payload", "",
+        event_data['data'],    
+        event_data['hora'],    
+        event_data['local'],   
+        event_data['nome'])
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
         save_message_to_firestore("15551910903", "sent", "5511950404471", message_text="Ok. Obrigada pela resposta.")
@@ -186,7 +234,21 @@ def reply_to_whatsapp_message(recipient_id, button_payload):
 
 
 # Template 3
-def template3(recipient_id, message_text):
+def template3(event_id, recipient_id, message_text):
+
+    # Buscar os dados do evento no Firestore
+    event_data = get_event_data(event_id)
+    if not event_data:
+        print("Erro: Não foi possível obter os dados do evento.")
+        return
+
+    # Variáveis do evento
+    evento = event_data["evento"]
+    data = event_data["data"]
+    hora = event_data["hora"]
+    local = event_data["local"]
+    nome = event_data["nome"]
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -235,14 +297,33 @@ def template3(recipient_id, message_text):
     if response.status_code == 200:
         print("Resposta enviada com sucesso!")
         #save_message_to_firestore("15551910903", "sent", nome, data, hora, local, )
-        save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local)
+        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", "",
+        event_data['data'],    
+        event_data['hora'],    
+        event_data['local'],   
+        event_data['nome'])
+        #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local, event_id=event_id)
     else:
         print("Erro ao enviar a resposta:", response.json())
 
 
 
 # Template 4
-def template4(recipient_id):
+def template4(event_id, recipient_id):
+
+    # Buscar os dados do evento no Firestore
+    event_data = get_event_data(event_id)
+    if not event_data:
+        print("Erro: Não foi possível obter os dados do evento.")
+        return
+
+    # Variáveis do evento
+    evento = event_data["evento"]
+    data = event_data["data"]
+    hora = event_data["hora"]
+    local = event_data["local"]
+    nome = event_data["nome"]
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -276,7 +357,11 @@ def template4(recipient_id):
     if response.status_code == 200:
         print("Template 4 enviado com sucesso!")
         #save_message_to_firestore("15551910903", "sent" ,nome, data, local, "sent")
-        save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local)
+        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", "", "",  
+        event_data['data'],        
+        event_data['local'],   
+        event_data['nome'])
+        #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local, event_id=event_id)
     else:
         print("Erro ao enviar Template 4:", response.json())
 
@@ -304,7 +389,7 @@ def webhook():
                         if "messages" in change["value"]:
                             for message in change["value"]["messages"]:
                                 sender_id = message["from"]
-                                sender_id = message["from"]  # Número do remetente
+                                #sender_id = message["from"]  # Número do remetente
                                 recipient_id = change["value"].get("metadata", {}).get("display_phone_number")   
                                 message_text = message.get("text", {}).get("body", "")
                                 # Verificar se há um botão
@@ -313,15 +398,15 @@ def webhook():
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
                                         #save_message_to_firestore(sender_id, "received", button_payload=button_payload)
-                                        save_message_to_firestore(sender_id, "received", recipient_id, button_payload=button_payload)
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, hora=None, local=None, nome=None)
                                         # Lógica com base no payload do botão
-                                        reply_to_whatsapp_message(sender_id, button_payload)
+                                        reply_to_whatsapp_message(event_id, sender_id, button_payload)
                                         # Continuar a lógica com base no payload
                                         if user_state.get(sender_id) == "awaiting_template2_response" and button_payload == "Tudo certo!":
-                                            template3(sender_id, "Tudo certo!")
+                                            template3(event_id, sender_id, "Tudo certo!")
                                             user_state[sender_id] = "awaiting_template3_response"
                                         elif user_state.get(sender_id) == "awaiting_template3_response":
-                                            template4(sender_id)
+                                            template4(event_id,sender_id)
                                             user_state[sender_id] = None
                                         #if user_state.get(sender_id) == "awaiting_template2_response":
                                             #if button_payload == "Sim":
@@ -332,46 +417,19 @@ def webhook():
                                 else:
                                     message_text = message.get("text", {}).get("body", "").lower()
                                     #save_message_to_firestore(sender_id, "received", message_text=message_text)
-                                    save_message_to_firestore(sender_id, "received", recipient_id, message_text=message_text)
+                                    #save_message_to_firestore(sender_id, "received", recipient_id, message_text=message_text)
+                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, evento=None, data=data, hora=None, local=None, nome=None)
                                     reply_to_whatsapp_message(sender_id, message_text)
 
         return jsonify({"status": "received"}), 200
 
 if __name__ == "__main__":
-    send_message_to_whatsapp()
+    event_id = "2"
+    send_message_to_whatsapp(event_id)
     app.run(debug=False, port=5000)
 
 
 
 
-
-         
-   
-         
         
-            
-        
-    
-
-
-        
-            
-        
-    
-
-
-    
-
-
-            
-        
-    
-
-
-        
-    
-
-
-
-            
         
