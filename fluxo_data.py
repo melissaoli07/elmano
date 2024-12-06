@@ -5,6 +5,7 @@ from google.cloud import firestore
 import os
 from google.cloud.firestore_v1._helpers import DatetimeWithNanoseconds
 from datetime import datetime
+import pytz
 
 # Inicializar Firestore
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "firebase-key.json"
@@ -15,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOz7HLO5LGFZBiRvZBdN0C26McdyMfDvHKV8MGQQaJsl8AEnHMm3Wmb8YdpS80avvy9znRINxr52ZCWn85NdXuC6xeNrZBsJPBJELTXI1trl8TUEKglEr7woWSxwh04BGvk4BQTGIZB0GlZApVp6ZA6TZBNZCJITWMr4fWjgZBCEDCZBzqHDXdrQRkMxbOVVBXRNSNZCyyPB9Y5SVAkZAmCYnABzLlHdYZD"
+access_token = "EAATXaSQjmX8BO5SfHZA8ZBWoQVMOsbcRtRaKOX7SQkZA9be06yfJzUeSgC04F9pmtpscmUXIcMltZAFlhwz1er1BMZCnF1ZCrqh5AEcOo7lBRxsCkhCy8drYJJtLSJOkYIyUzWe49QZBb35SgQEwAu2dxUacyW9LZAHfjCpvYw7HMgtGFpePLz8uRHBmfUpzO21PTYdz7yODZBWUcUiwUbHrCFjME4rI2ycjzaRUZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -28,6 +29,7 @@ def serialize_firestore_field(value):
     return value
 
 
+
 # Função para buscar dados de um evento no Firestore
 def get_event_data(event_id):
     try:
@@ -37,29 +39,34 @@ def get_event_data(event_id):
 
         if doc.exists:
             data = doc.to_dict()
-            # Extrair a data do campo 'data' do Firestore
-            timestampd = data.get("data", "")
-            # Extrair a hora do campo 'hora' do Firestore
-            timestamph = data.get("hora", "")
-            if isinstance(timestampd, DatetimeWithNanoseconds):
-                # Separar data 
-                data_formatada = timestampd.date().isoformat()  # YYYY-MM-DD
-            if isinstance(timestamph, DatetimeWithNanoseconds):
-                # Separar hora
-                hora_formatada = timestamph.time().strftime("%H:%M:%S")  # HH:MM:SS
-            else:
-                data_formatada = ""
-                hora_formatada = ""
+
+            local_tz = pytz.timezone("America/Sao_Paulo")
+
+            def convert_to_local(dt):
+                if isinstance(dt, DatetimeWithNanoseconds):
+                    return dt.astimezone(local_tz).strftime("%H:%M")
+                return ""
+            
+            def convert_to_local_date(dt):
+                if isinstance(dt, DatetimeWithNanoseconds):
+                    return dt.astimezone(local_tz).strftime("%d/%m/%Y")  # Formato dia/mês/ano
+                return ""
+
             print("Dados do evento encontrados:", data)
+            voluntario_corte_1 = get_nome_from_another_collection()
+
             return {
                 "evento": data.get("evento", ""),
-                "data": data_formatada, 
-                #"data": serialize_firestore_field(data.get("data", "")),
-                #"hora": serialize_firestore_field(data.get("hora", "")),
-                "inicio": hora_formatada,
-                "fim": hora_formatada,
+                "data": convert_to_local_date(data.get("data")), 
+                "inicio": convert_to_local(data.get("inicio")),
+                "termino": convert_to_local(data.get("termino")),
+                #"data": data["data"].date().isoformat() if isinstance(data.get("data"), DatetimeWithNanoseconds) else "",
+                #"inicio": data["inicio"].time().strftime("%H:%M:%S") if isinstance(data.get("inicio"), DatetimeWithNanoseconds) else "",
+                #"termino": data["termino"].time().strftime("%H:%M:%S") if isinstance(data.get("termino"), DatetimeWithNanoseconds) else "",
                 "local": data.get("local", ""),
-                "nome": data.get("nome", "")
+                #"nomes": nomes
+                "voluntario_corte_1": voluntario_corte_1
+                #"voluntario-som-1": voluntario_som_1_nome
             }
         else:
             print("Documento não encontrado!")
@@ -70,8 +77,56 @@ def get_event_data(event_id):
 
 
 
+# Função para buscar o nome "Matheus" na coleção "voluntários"
+def get_nome_from_another_collection():
+    try:
+        # Referência à coleção "voluntários"
+        voluntarios_ref = db.collection("voluntários")
+        # Realizar uma consulta filtrando pelo nome "Matheus"
+        docs = voluntarios_ref.where("nome", "==", "Matheus").stream()
+
+        voluntario_corte_1 = []
+        voluntario_corte_id = []
+        for doc in docs:
+            nome_data = doc.to_dict()
+            nome = nome_data.get("nome", "")
+            if nome:
+                voluntario_corte_1.append(nome)
+            voluntario_id = doc.id
+            voluntario_corte_id.append(voluntario_id)
+        
+        if voluntario_corte_1:
+            print(f"Voluntários encontrados: {voluntario_corte_1}")
+            return voluntario_corte_1, voluntario_corte_id  # Retorna uma lista com os nomes encontrados
+        else:
+            print("Nenhum voluntário encontrado com o nome 'Matheus'!")
+            return [], []
+
+    except Exception as e:
+        print(f"Erro ao buscar nomes na coleção 'voluntários': {e}")
+        return [], []
+
+
+
+# Função para atualizar dados de um evento no Firestore
+def update_event_data(event_id, voluntario_id):
+    try:
+        # Referência ao documento no Firestore
+        doc_ref = db.collection("evento").document(event_id)
+        doc_ref.update({"voluntario_corte_1": voluntario_id})
+        print(f"Dados do evento {event_id} atualizados com sucesso!")
+    except Exception as e:
+        print(f"Erro ao atualizar dados no Firestore: {e}")
+
+
+
+
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, fim, local, nome):
+def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, voluntario_corte_1):
+    
+    if isinstance(voluntario_corte_1, list):
+        voluntario_corte_1 = ", ".join(voluntario_corte_1)
+    
     try:
 
         doc_ref = db.collection("mensagens").document()
@@ -81,9 +136,11 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
             "evento": evento,
             "data": data,
             "inicio": inicio,
-            "fim": fim,
+            "termino": termino,
             "local": local,
-            "nome": nome,
+            #"nome": nome,
+            "voluntario_corte_1": voluntario_corte_1,
+            #"voluntario-som-1": voluntario_som_1_nome,
             "event_id": event_id,
             "message_text": message_text,
             "button_payload": button_payload,  # Salvando o payload do botão
@@ -96,6 +153,9 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
 
 
 
+
+
+
 #Template 1
 def send_message_to_whatsapp(event_id):
     # Buscar os dados do evento no Firestore
@@ -104,15 +164,29 @@ def send_message_to_whatsapp(event_id):
         print("Erro: Não foi possível obter os dados do evento.")
         return
 
-    event_data_serialized = serialize_firestore_field(event_data)
+    #event_data_serialized = serialize_firestore_field(event_data)
+
+    voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
+    if not voluntario_corte_1 or not voluntario_corte_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
+
 
     # Variáveis do evento
     evento = event_data["evento"]
     data = event_data["data"]
     inicio = event_data["inicio"]
-    fim = event_data["fim"]
+    termino = event_data["termino"]
     local = event_data["local"]
-    nome = event_data["nome"]
+    voluntario_corte_1 = voluntario_corte_1
+
+    if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
+
+     # Exemplo de como você pode usar os nomes na mensagem
+    nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
+
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -125,7 +199,7 @@ def send_message_to_whatsapp(event_id):
         "to": "5511950404471",  
         "type": "template",
         "template": {
-            "name": "template_11",  
+            "name": "template_novo",  
             "language": {
                 "code": "pt_BR"  
             },
@@ -136,9 +210,9 @@ def send_message_to_whatsapp(event_id):
                         {"type": "text", "text": evento},
                         {"type": "text", "text": data},
                         {"type": "text", "text": inicio},
-                        {"type": "text", "text": fim},
                         {"type": "text", "text": local},
-                        {"type": "text", "text": nome}
+                        {"type": "text", "text": nome_message},
+                        {"type": "text", "text": termino}
                     ]
                 },
                 {
@@ -175,9 +249,15 @@ def send_message_to_whatsapp(event_id):
         event_data['evento'],
         event_data['data'],    
         event_data['inicio'],  
-        event_data['fim'],    
+        event_data['termino'],    
         event_data['local'],   
-        event_data['nome'])
+        nome_message)
+
+
+        # Atualizar os dados do evento no Firestore
+        voluntario_id = voluntario_corte_1_id[0]
+        update_event_data(event_id, voluntario_id)
+
     else:
         print("Erro ao enviar a mensagem inicial:", response.json())
 
@@ -427,7 +507,7 @@ def webhook():
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
                                         #save_message_to_firestore(sender_id, "received", button_payload=button_payload)
-                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, fim=None, local=None, nome=None)
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome=None)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(event_id, sender_id, button_payload)
                                         # Continuar a lógica com base no payload
@@ -447,7 +527,7 @@ def webhook():
                                     message_text = message.get("text", {}).get("body", "").lower()
                                     #save_message_to_firestore(sender_id, "received", message_text=message_text)
                                     #save_message_to_firestore(sender_id, "received", recipient_id, message_text=message_text)
-                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, fim=None, local=None, nome=None)
+                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome=None)
                                     reply_to_whatsapp_message(sender_id, message_text)
 
         return jsonify({"status": "received"}), 200
