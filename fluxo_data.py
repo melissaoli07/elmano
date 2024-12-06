@@ -3,7 +3,8 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from google.cloud import firestore
 import os
-
+from google.cloud.firestore_v1._helpers import DatetimeWithNanoseconds
+from datetime import datetime
 
 # Inicializar Firestore
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "firebase-key.json"
@@ -14,11 +15,17 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO5UcoP48pOKcJYwyTrTWdTiYQOMKGUyzZCwNRZBISBt0x6URYYJ2fZB7htk6N7O72yb7pXs4RZAskUsFcXjDA2GT7wnZA9cG6rbsFyiEBWJFX5RMZCBj6fTzczHrzjFU4DlqmqO39pdYxmXyrcUHjnICJzZCZAuaZAwdoG7VypMDp52yZBFZC15SPFFchKTLIj2sgZAJxwaOB6rxoZBbL1ZADcLqeJXbIZD"
+access_token = "EAATXaSQjmX8BOz7HLO5LGFZBiRvZBdN0C26McdyMfDvHKV8MGQQaJsl8AEnHMm3Wmb8YdpS80avvy9znRINxr52ZCWn85NdXuC6xeNrZBsJPBJELTXI1trl8TUEKglEr7woWSxwh04BGvk4BQTGIZB0GlZApVp6ZA6TZBNZCJITWMr4fWjgZBCEDCZBzqHDXdrQRkMxbOVVBXRNSNZCyyPB9Y5SVAkZAmCYnABzLlHdYZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
 user_state = {}
+
+
+def serialize_firestore_field(value):
+    if isinstance(value, DatetimeWithNanoseconds):
+        return value.isoformat()
+    return value
 
 
 # Função para buscar dados de um evento no Firestore
@@ -30,11 +37,27 @@ def get_event_data(event_id):
 
         if doc.exists:
             data = doc.to_dict()
+            # Extrair a data do campo 'data' do Firestore
+            timestampd = data.get("data", "")
+            # Extrair a hora do campo 'hora' do Firestore
+            timestamph = data.get("hora", "")
+            if isinstance(timestampd, DatetimeWithNanoseconds):
+                # Separar data 
+                data_formatada = timestampd.date().isoformat()  # YYYY-MM-DD
+            if isinstance(timestamph, DatetimeWithNanoseconds):
+                # Separar hora
+                hora_formatada = timestamph.time().strftime("%H:%M:%S")  # HH:MM:SS
+            else:
+                data_formatada = ""
+                hora_formatada = ""
             print("Dados do evento encontrados:", data)
             return {
                 "evento": data.get("evento", ""),
-                "data": data.get("data", ""),
-                "hora": data.get("hora", ""),
+                "data": data_formatada, 
+                #"data": serialize_firestore_field(data.get("data", "")),
+                #"hora": serialize_firestore_field(data.get("hora", "")),
+                "inicio": hora_formatada,
+                "fim": hora_formatada,
                 "local": data.get("local", ""),
                 "nome": data.get("nome", "")
             }
@@ -48,7 +71,7 @@ def get_event_data(event_id):
 
 
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, hora, local, nome):
+def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, fim, local, nome):
     try:
 
         doc_ref = db.collection("mensagens").document()
@@ -57,7 +80,8 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
             "recipient_id": recipient_id or "",
             "evento": evento,
             "data": data,
-            "hora": hora,
+            "inicio": inicio,
+            "fim": fim,
             "local": local,
             "nome": nome,
             "event_id": event_id,
@@ -80,10 +104,13 @@ def send_message_to_whatsapp(event_id):
         print("Erro: Não foi possível obter os dados do evento.")
         return
 
+    event_data_serialized = serialize_firestore_field(event_data)
+
     # Variáveis do evento
     evento = event_data["evento"]
     data = event_data["data"]
-    hora = event_data["hora"]
+    inicio = event_data["inicio"]
+    fim = event_data["fim"]
     local = event_data["local"]
     nome = event_data["nome"]
 
@@ -108,7 +135,8 @@ def send_message_to_whatsapp(event_id):
                     "parameters": [
                         {"type": "text", "text": evento},
                         {"type": "text", "text": data},
-                        {"type": "text", "text": hora},
+                        {"type": "text", "text": inicio},
+                        {"type": "text", "text": fim},
                         {"type": "text", "text": local},
                         {"type": "text", "text": nome}
                     ]
@@ -146,7 +174,8 @@ def send_message_to_whatsapp(event_id):
         save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", 
         event_data['evento'],
         event_data['data'],    
-        event_data['hora'],    
+        event_data['inicio'],  
+        event_data['fim'],    
         event_data['local'],   
         event_data['nome'])
     else:
@@ -398,7 +427,7 @@ def webhook():
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
                                         #save_message_to_firestore(sender_id, "received", button_payload=button_payload)
-                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, hora=None, local=None, nome=None)
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, fim=None, local=None, nome=None)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(event_id, sender_id, button_payload)
                                         # Continuar a lógica com base no payload
@@ -418,13 +447,13 @@ def webhook():
                                     message_text = message.get("text", {}).get("body", "").lower()
                                     #save_message_to_firestore(sender_id, "received", message_text=message_text)
                                     #save_message_to_firestore(sender_id, "received", recipient_id, message_text=message_text)
-                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, evento=None, data=data, hora=None, local=None, nome=None)
+                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, fim=None, local=None, nome=None)
                                     reply_to_whatsapp_message(sender_id, message_text)
 
         return jsonify({"status": "received"}), 200
 
 if __name__ == "__main__":
-    event_id = "1"
+    event_id = "7"
     send_message_to_whatsapp(event_id)
     app.run(debug=False, port=5000)
 
