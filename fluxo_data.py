@@ -16,7 +16,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO5SfHZA8ZBWoQVMOsbcRtRaKOX7SQkZA9be06yfJzUeSgC04F9pmtpscmUXIcMltZAFlhwz1er1BMZCnF1ZCrqh5AEcOo7lBRxsCkhCy8drYJJtLSJOkYIyUzWe49QZBb35SgQEwAu2dxUacyW9LZAHfjCpvYw7HMgtGFpePLz8uRHBmfUpzO21PTYdz7yODZBWUcUiwUbHrCFjME4rI2ycjzaRUZD"
+access_token = "EAATXaSQjmX8BOyKO4PH0JQtrZAfjhxY0dodp3mi2uasjTZC0DCfaTuEZBxc2Rr6dZALZAWcJIz7hDmB5xwGFX9pU6tgDMAGwY5dUSdBYldAAkmQCwBUl9EynUZADZCDODgUYT12lSZCrTpuojisZBz0oMmeFi3MRZC6LswvSa2LZCQZCjyhc8HVoo2AtbX3cIdD0PD3ZCA1WtL67xrX4CXhTzATdLhtiwHlxGfOhkNNgZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -199,7 +199,7 @@ def send_message_to_whatsapp(event_id):
         "to": "5511950404471",  
         "type": "template",
         "template": {
-            "name": "template_novo",  
+            "name": "template_11",  
             "language": {
                 "code": "pt_BR"  
             },
@@ -271,12 +271,26 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         print("Erro: Não foi possível obter os dados do evento.")
         return
 
+    voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
+    if not voluntario_corte_1 or not voluntario_corte_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
+    
+
     # Variáveis do evento
     evento = event_data["evento"]
     data = event_data["data"]
-    hora = event_data["hora"]
+    inicio = event_data["inicio"]
+    termino = event_data["termino"]
     local = event_data["local"]
-    nome = event_data["nome"]
+    voluntario_corte_1 = voluntario_corte_1
+
+    if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
+
+     # Exemplo de como você pode usar os nomes na mensagem
+    nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
 
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
@@ -294,7 +308,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
             "to": recipient_id,
             "type": "template",
             "template": {
-                "name": "template2",  
+                "name": "template_novo2",  
                 "language": {
                     "code": "pt_BR"  
                 },
@@ -302,10 +316,11 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
                     {
                         "type": "body",
                         "parameters": [
-                            {"type": "text", "text": nome},
+                            {"type": "text", "text": nome_message},
                             {"type": "text", "text": data},
-                            {"type": "text", "text": hora},
-                            {"type": "text", "text": local}
+                            {"type": "text", "text": inicio},
+                            {"type": "text", "text": local},
+                            {"type": "text", "text": termino} 
                         ]
                     }
                 ]
@@ -329,11 +344,13 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
 
     if response.status_code == 200 and button_payload == "sim":
         print("Resposta enviada com sucesso!")
-        save_message_to_firestore(event_id,"15551910903", "sent", "5511950404471", "message_text", "button_payload", "",
+        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", "",
         event_data['data'],    
-        event_data['hora'],    
-        event_data['local'],   
-        event_data['nome'])
+        event_data['inicio'],
+        event_data['termino'],      
+        event_data['local'],
+        nome_message)
+
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
         save_message_to_firestore("15551910903", "sent", "5511950404471", message_text="Ok. Obrigada pela resposta.")
@@ -345,18 +362,33 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
 # Template 3
 def template3(event_id, recipient_id, message_text):
 
+    
     # Buscar os dados do evento no Firestore
     event_data = get_event_data(event_id)
     if not event_data:
         print("Erro: Não foi possível obter os dados do evento.")
         return
 
+    voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
+    if not voluntario_corte_1 or not voluntario_corte_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
+    
+
     # Variáveis do evento
     evento = event_data["evento"]
     data = event_data["data"]
-    hora = event_data["hora"]
+    inicio = event_data["inicio"]
+    termino = event_data["termino"]
     local = event_data["local"]
-    nome = event_data["nome"]
+    voluntario_corte_1 = voluntario_corte_1
+
+    if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
+
+     # Exemplo de como você pode usar os nomes na mensagem
+    nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -379,9 +411,10 @@ def template3(event_id, recipient_id, message_text):
                 {
                     "type": "body",
                     "parameters": [
-                        {"type": "text", "text": nome},
+                        {"type": "text", "text": nome_message},
                         {"type": "text", "text": data},
-                        {"type": "text", "text": hora},
+                        {"type": "text", "text": inicio},
+                        {"type": "text", "text": termino},
                         {"type": "text", "text": local}
                     ]
                 }
@@ -408,9 +441,11 @@ def template3(event_id, recipient_id, message_text):
         #save_message_to_firestore("15551910903", "sent", nome, data, hora, local, )
         save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", "",
         event_data['data'],    
-        event_data['hora'],    
+        event_data['inicio'],  
+        event_data['termino'],  
         event_data['local'],   
-        event_data['nome'])
+        event_data['nome'],
+        nome_message)
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local, event_id=event_id)
     else:
         print("Erro ao enviar a resposta:", response.json())
@@ -507,7 +542,7 @@ def webhook():
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
                                         #save_message_to_firestore(sender_id, "received", button_payload=button_payload)
-                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome=None)
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, voluntario_corte_1=None)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(event_id, sender_id, button_payload)
                                         # Continuar a lógica com base no payload
