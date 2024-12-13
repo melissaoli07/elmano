@@ -7,6 +7,7 @@ from google.cloud.firestore_v1._helpers import DatetimeWithNanoseconds
 from datetime import datetime
 import pytz
 
+
 # Inicializar Firestore
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "firebase-key.json"
 db = firestore.Client()
@@ -16,7 +17,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO7BFYR7BaOqJePXyifotRFq6HYYRg1WfVuATKDuSsxWbb61rCVIym0vSRULcTduWizVeiRfkMd3gGHItbshQJHDrU3zKYLZA6NY3wQtDh57wZB9hIZAZBzM7AjVtm5JC9QLFOsfpBKX9Btzu6ZCZCWw0PYNAqedWHpfA59rBnO88oHzynq46dSc8Nuw50yWtoR6GzdXxsTH5dMBIaAuZBZC4Yi0ZD"
+access_token = "EAATXaSQjmX8BOwvb6GGFovjYSf5VmZB5bW27JyjrctKZBQI8YjtIfGhrMFBa5bmnRUyVMFUhpND3RU4qptCHGP2tccVwFhnkdtqsZBekiRRuaqcZBaHGwMehfGIvFYlZCrkdCZC5bG42nRJIh5ZBxsueQNGsCLZAZCemxUAKaZAqE5id55NacmKkrC0PvkTAXRZBbr4nRgQdxVaX3WsRODAE0ckZASxiuJIiK7r4ly8ZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -55,7 +56,7 @@ def get_event_data(event_id):
             print("Dados do evento encontrados:", data)
             #voluntario_corte_1 = get_nome_from_another_collection()
             voluntario_corte_1 = get_voluntarios_from_instituicao_corte()
-            #voluntario_som_1 = get_voluntarios_from_instituicao_som()
+            voluntario_som_1 = get_voluntarios_from_instituicao_som()
 
 
             return {
@@ -69,7 +70,7 @@ def get_event_data(event_id):
                 "local": data.get("local", ""),
                 #"nomes": nomes
                 "voluntario_corte_1": voluntario_corte_1,
-                #"voluntario_som_1": voluntario_som_1
+                "voluntario_som_1": voluntario_som_1
             }
         else:
             print("Documento não encontrado!")
@@ -142,7 +143,7 @@ def get_voluntarios_from_instituicao_corte():
         return [], []
 
 
-'''
+
 # Função para buscar voluntários da instituição "Batista" e com 'som' em 'habilidades'
 def get_voluntarios_from_instituicao_som():
     try:
@@ -173,7 +174,7 @@ def get_voluntarios_from_instituicao_som():
         return [], []
 
 
-'''
+
 
 
 
@@ -184,7 +185,7 @@ def update_event_data(event_id, voluntario_id):
         # Referência ao documento no Firestore
         doc_ref = db.collection("evento").document(event_id)
         doc_ref.update({"voluntario_corte_1": voluntario_id})
-        #doc_ref.update({"voluntario_som_1": voluntario_id})
+        doc_ref.update({"voluntario_som_1": voluntario_id})
         print(f"Dados do evento {event_id} atualizados com sucesso!")
     except Exception as e:
         print(f"Erro ao atualizar dados no Firestore: {e}")
@@ -193,14 +194,14 @@ def update_event_data(event_id, voluntario_id):
 
 
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, voluntario_corte_1):
+def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, voluntario_corte_1, voluntario_som_1):
     
     if isinstance(voluntario_corte_1, list):
         voluntario_corte_1 = ", ".join(voluntario_corte_1)
     
     
-    #if isinstance(voluntario_som_1, list):
-        #voluntario_som_1 = ", ".join(voluntario_som_1)
+    if isinstance(voluntario_som_1, list):
+        voluntario_som_1 = ", ".join(voluntario_som_1)
     
     try:
 
@@ -215,7 +216,7 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
             "local": local,
             #"nome": nome,
             "voluntario_corte_1": voluntario_corte_1,
-            #"voluntario-som-1": voluntario_som_1,
+            "voluntario-som-1": voluntario_som_1,
             "event_id": event_id,
             "message_text": message_text,
             "button_payload": button_payload,  # Salvando o payload do botão
@@ -243,15 +244,15 @@ def send_message_to_whatsapp(event_id):
 
     #voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
     voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
-    #voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
+    voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
 
     if not voluntario_corte_1 or not voluntario_corte_1_id:
         print("Erro: Nenhum voluntário encontrado.")
         return
     
-    #if not voluntario_som_1 or not voluntario_som_1_id:
-        #print("Erro: Nenhum voluntário encontrado.")
-        #return
+    if not voluntario_som_1 or not voluntario_som_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
 
 
     # Variáveis do evento
@@ -261,19 +262,19 @@ def send_message_to_whatsapp(event_id):
     termino = event_data["termino"]
     local = event_data["local"]
     voluntario_corte_1 = voluntario_corte_1
-    #voluntario_som_1 = voluntario_som_1
+    voluntario_som_1 = voluntario_som_1
 
     if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
         print("Erro: Campos obrigatórios estão faltando.")
         return
     
-    #if not all([evento, data, inicio, termino, local, voluntario_som_1]):
-        #print("Erro: Campos obrigatórios estão faltando.")
-        #return
+    if not all([evento, data, inicio, termino, local, voluntario_som_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
 
      # Exemplo de como você pode usar os nomes na mensagem
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
-    #nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
+    nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -300,7 +301,7 @@ def send_message_to_whatsapp(event_id):
                         {"type": "text", "text": local},
                         #ou um ou outro:
                         {"type": "text", "text": nome_message},
-                        #{"type": "text", "text": nome_message2},
+                        {"type": "text", "text": nome_message2},
                         {"type": "text", "text": termino}
                     ]
                 },
@@ -341,7 +342,7 @@ def send_message_to_whatsapp(event_id):
         event_data['termino'],    
         event_data['local'],  
         # ou um ou outro:
-        #nome_message2)
+        nome_message2,
         nome_message)
 
 
@@ -350,8 +351,8 @@ def send_message_to_whatsapp(event_id):
         update_event_data(event_id, voluntario_id)
 
         #Ou pro som
-        #voluntario_id = voluntario_som_1_id[0]
-        #update_event_data(event_id, voluntario_id)
+        voluntario_id = voluntario_som_1_id[0]
+        update_event_data(event_id, voluntario_id)
 
     else:
         print("Erro ao enviar a mensagem inicial:", response.json())
@@ -368,15 +369,15 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
 
     #voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
     voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
-    #voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
+    voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
 
     if not voluntario_corte_1 or not voluntario_corte_1_id:
         print("Erro: Nenhum voluntário encontrado.")
         return
     
-    #if not voluntario_som_1 or not voluntario_som_1_id:
-        #print("Erro: Nenhum voluntário encontrado.")
-        #return
+    if not voluntario_som_1 or not voluntario_som_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
     
 
     # Variáveis do evento
@@ -386,19 +387,19 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
     termino = event_data["termino"]
     local = event_data["local"]
     voluntario_corte_1 = voluntario_corte_1
-    #voluntario_som_1 = voluntario_som_1
+    voluntario_som_1 = voluntario_som_1
 
     if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
         print("Erro: Campos obrigatórios estão faltando.")
         return
     
-    #if not all([evento, data, inicio, termino, local, voluntario_som_1]):
-        #print("Erro: Campos obrigatórios estão faltando.")
-        #return
+    if not all([evento, data, inicio, termino, local, voluntario_som_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
 
      # Exemplo de como você pode usar os nomes na mensagem
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
-    #nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
+    nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -424,6 +425,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
                         "type": "body",
                         "parameters": [
                             {"type": "text", "text": nome_message},
+                            {"type": "text", "text": nome_message2},
                             {"type": "text", "text": data},
                             {"type": "text", "text": inicio},
                             {"type": "text", "text": local},
@@ -456,7 +458,8 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         event_data['inicio'],
         event_data['termino'],      
         event_data['local'],
-        nome_message)
+        nome_message,
+        nome_message2)
 
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
@@ -478,15 +481,15 @@ def template3(event_id, recipient_id, message_text):
 
     #voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
     voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
-    #voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
+    voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
 
     if not voluntario_corte_1 or not voluntario_corte_1_id:
         print("Erro: Nenhum voluntário encontrado.")
         return
     
-    #if not voluntario_som_1 or not voluntario_som_1_id:
-        #print("Erro: Nenhum voluntário encontrado.")
-        #return
+    if not voluntario_som_1 or not voluntario_som_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
     
 
     # Variáveis do evento
@@ -496,19 +499,19 @@ def template3(event_id, recipient_id, message_text):
     termino = event_data["termino"]
     local = event_data["local"]
     voluntario_corte_1 = voluntario_corte_1
-    #voluntario_som_1 = voluntario_som_1
+    voluntario_som_1 = voluntario_som_1
 
     if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
         print("Erro: Campos obrigatórios estão faltando.")
         return
     
-    #if not all([evento, data, inicio, termino, local, voluntario_som_1]):
-        #print("Erro: Campos obrigatórios estão faltando.")
-        #return
+    if not all([evento, data, inicio, termino, local, voluntario_som_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
 
      # Exemplo de como você pode usar os nomes na mensagem
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
-    #nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
+    nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -532,6 +535,7 @@ def template3(event_id, recipient_id, message_text):
                     "type": "body",
                     "parameters": [
                         {"type": "text", "text": nome_message},
+                        {"type": "text", "text": nome_message2},
                         {"type": "text", "text": data},
                         {"type": "text", "text": inicio},
                         {"type": "text", "text": local},
@@ -564,7 +568,8 @@ def template3(event_id, recipient_id, message_text):
         event_data['inicio'],  
         event_data['termino'],  
         event_data['local'],
-        nome_message)
+        nome_message,
+        nome_message2)
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local, event_id=event_id)
     else:
         print("Erro ao enviar a resposta:", response.json())
@@ -582,15 +587,15 @@ def template4(event_id, recipient_id):
 
     #voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
     voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
-    #voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
+    voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
 
     if not voluntario_corte_1 or not voluntario_corte_1_id:
         print("Erro: Nenhum voluntário encontrado.")
         return
     
-    #if not voluntario_som_1 or not voluntario_som_1_id:
-        #print("Erro: Nenhum voluntário encontrado.")
-        #return
+    if not voluntario_som_1 or not voluntario_som_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
     
 
     # Variáveis do evento
@@ -600,19 +605,19 @@ def template4(event_id, recipient_id):
     termino = event_data["termino"]
     local = event_data["local"]
     voluntario_corte_1 = voluntario_corte_1
-    #voluntario_som_1 = voluntario_som_1
+    voluntario_som_1 = voluntario_som_1
 
     if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
         print("Erro: Campos obrigatórios estão faltando.")
         return
     
-    #if not all([evento, data, inicio, termino, local, voluntario_som_1]):
-        #print("Erro: Campos obrigatórios estão faltando.")
-        #return
+    if not all([evento, data, inicio, termino, local, voluntario_som_1]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
 
      # Exemplo de como você pode usar os nomes na mensagem
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
-    #nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
+    nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -634,6 +639,7 @@ def template4(event_id, recipient_id):
                     "type": "body",
                     "parameters": [
                         {"type": "text", "text": nome_message},
+                        {"type": "text", "text": nome_message2},
                         {"type": "text", "text": inicio},
                         {"type": "text", "text": local},
                         {"type": "text", "text": termino}
@@ -652,7 +658,8 @@ def template4(event_id, recipient_id):
         event_data['inicio'],
         event_data['termino'],       
         event_data['local'],   
-        nome_message)
+        nome_message,
+        nome_message2)
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local, event_id=event_id)
     else:
         print("Erro ao enviar Template 4:", response.json())
@@ -690,7 +697,7 @@ def webhook():
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
                                         #save_message_to_firestore(sender_id, "received", button_payload=button_payload)
-                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, voluntario_corte_1=None)
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, voluntario_corte_1=None, voluntario_som_1=None)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(event_id, sender_id, button_payload)
                                         # Continuar a lógica com base no payload
@@ -710,7 +717,7 @@ def webhook():
                                     message_text = message.get("text", {}).get("body", "").lower()
                                     #save_message_to_firestore(sender_id, "received", message_text=message_text)
                                     #save_message_to_firestore(sender_id, "received", recipient_id, message_text=message_text)
-                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome=None)
+                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, voluntario_corte_1=None, voluntario_som_1=None)
                                     reply_to_whatsapp_message(sender_id, message_text)
 
         return jsonify({"status": "received"}), 200
