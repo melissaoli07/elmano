@@ -17,7 +17,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOwvb6GGFovjYSf5VmZB5bW27JyjrctKZBQI8YjtIfGhrMFBa5bmnRUyVMFUhpND3RU4qptCHGP2tccVwFhnkdtqsZBekiRRuaqcZBaHGwMehfGIvFYlZCrkdCZC5bG42nRJIh5ZBxsueQNGsCLZAZCemxUAKaZAqE5id55NacmKkrC0PvkTAXRZBbr4nRgQdxVaX3WsRODAE0ckZASxiuJIiK7r4ly8ZD"
+access_token = "EAATXaSQjmX8BO2FtyfZAYyo5ZCZBtHcV4pkY4qU1mM2YT0fim2uEXmMNFUKPRNuW14INskhIdtZB4uZAFP27uxMDpt7gRbrTsMcQdH6uIZAcb6vniusU0CEhRYL2JuE24L9Smh1cQd1JSaaRDPJTcfIebZBZC8N14XIdzS0izX9h82i2iBBsgjkZBRFZARFSW2bILU1Gxq0h3MQjtHokfZBnhryXh4nA76j8hCjpuMZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -79,38 +79,7 @@ def get_event_data(event_id):
         print(f"Erro ao buscar dados no Firestore: {e}")
         return None
 
-
-
-# Função para buscar o nome "Matheus" na coleção "voluntários"
-'''def get_nome_from_another_collection():
-    try:
-        # Referência à coleção "voluntários"
-        voluntarios_ref = db.collection("voluntários")
-        # Realizar uma consulta filtrando pelo nome "Matheus"
-        docs = voluntarios_ref.where("nome", "==", "Matheus").stream()
-
-        voluntario_corte_1 = []
-        voluntario_corte_id = []
-        for doc in docs:
-            nome_data = doc.to_dict()
-            nome = nome_data.get("nome", "")
-            if nome:
-                voluntario_corte_1.append(nome)
-            voluntario_id = doc.id
-            voluntario_corte_id.append(voluntario_id)
         
-        if voluntario_corte_1:
-            print(f"Voluntários encontrados: {voluntario_corte_1}")
-            return voluntario_corte_1, voluntario_corte_id  # Retorna uma lista com os nomes encontrados
-        else:
-            print("Nenhum voluntário encontrado com o nome 'Matheus'!")
-            return [], []
-
-    except Exception as e:
-        print(f"Erro ao buscar nomes na coleção 'voluntários': {e}")
-        return [], []
-
-'''
 
 
 # Função para buscar voluntários da instituição "Batista" e com 'corte' em 'habilidades'
@@ -216,7 +185,7 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
             "local": local,
             #"nome": nome,
             "voluntario_corte_1": voluntario_corte_1,
-            "voluntario-som-1": voluntario_som_1,
+            "voluntario_som_1": voluntario_som_1,
             "event_id": event_id,
             "message_text": message_text,
             "button_payload": button_payload,  # Salvando o payload do botão
@@ -226,8 +195,6 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
         print("Mensagem salva no Firestore!")
     except Exception as e:
         print(f"Erro ao salvar no Firestore: {e}")
-
-
 
 
 
@@ -276,6 +243,19 @@ def send_message_to_whatsapp(event_id):
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
     nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
+    todos_voluntarios = voluntario_corte_1 + voluntario_som_1
+
+    for voluntario in todos_voluntarios:
+        parameters = [
+                {"type": "text", "text": evento},
+                {"type": "text", "text": data},
+                {"type": "text", "text": inicio},
+                {"type": "text", "text": local},
+                {"type": "text", "text": voluntario}, # Adiciona o nome do voluntário individualmente
+                {"type": "text", "text": termino} 
+            ]
+
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -294,16 +274,7 @@ def send_message_to_whatsapp(event_id):
             "components": [
                 {
                     "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": evento},
-                        {"type": "text", "text": data},
-                        {"type": "text", "text": inicio},
-                        {"type": "text", "text": local},
-                        #ou um ou outro:
-                        {"type": "text", "text": nome_message},
-                        {"type": "text", "text": nome_message2},
-                        {"type": "text", "text": termino}
-                    ]
+                    "parameters": parameters
                 },
                 {
                 "type": "button",  # Componente de botão
@@ -341,9 +312,7 @@ def send_message_to_whatsapp(event_id):
         event_data['inicio'],  
         event_data['termino'],    
         event_data['local'],  
-        # ou um ou outro:
-        nome_message2,
-        nome_message)
+        "", "")
 
 
         # Atualizar os dados do evento no Firestore
@@ -401,6 +370,17 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
     nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
+    todos_voluntarios = voluntario_corte_1 + voluntario_som_1
+
+    for voluntario in todos_voluntarios:
+        parameters = [
+                {"type": "text", "text": voluntario},
+                {"type": "text", "text": data},
+                {"type": "text", "text": inicio},
+                {"type": "text", "text": local}, 
+                {"type": "text", "text": termino} 
+            ]
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -423,14 +403,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
                 "components": [
                     {
                         "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": nome_message},
-                            {"type": "text", "text": nome_message2},
-                            {"type": "text", "text": data},
-                            {"type": "text", "text": inicio},
-                            {"type": "text", "text": local},
-                            {"type": "text", "text": termino} 
-                        ]
+                        "parameters": parameters
                     }
                 ]
             }
@@ -458,8 +431,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         event_data['inicio'],
         event_data['termino'],      
         event_data['local'],
-        nome_message,
-        nome_message2)
+        "", "")
 
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
@@ -513,6 +485,18 @@ def template3(event_id, recipient_id, message_text):
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
     nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
+
+    todos_voluntarios = voluntario_corte_1 + voluntario_som_1
+
+    for voluntario in todos_voluntarios:
+        parameters = [
+                {"type": "text", "text": voluntario},
+                {"type": "text", "text": data},
+                {"type": "text", "text": inicio},
+                {"type": "text", "text": local}, 
+                {"type": "text", "text": termino} 
+            ]
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -533,14 +517,7 @@ def template3(event_id, recipient_id, message_text):
             "components": [
                 {
                     "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": nome_message},
-                        {"type": "text", "text": nome_message2},
-                        {"type": "text", "text": data},
-                        {"type": "text", "text": inicio},
-                        {"type": "text", "text": local},
-                        {"type": "text", "text": termino}   
-                    ]
+                    "parameters": parameters
                 }
             ]
         }
@@ -568,8 +545,7 @@ def template3(event_id, recipient_id, message_text):
         event_data['inicio'],  
         event_data['termino'],  
         event_data['local'],
-        nome_message,
-        nome_message2)
+        "","")
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local, event_id=event_id)
     else:
         print("Erro ao enviar a resposta:", response.json())
@@ -619,6 +595,17 @@ def template4(event_id, recipient_id):
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
     nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
+    todos_voluntarios = voluntario_corte_1 + voluntario_som_1
+
+    for voluntario in todos_voluntarios:
+        parameters = [
+                {"type": "text", "text": voluntario},
+                {"type": "text", "text": inicio},
+                {"type": "text", "text": local}, 
+                {"type": "text", "text": termino} 
+            ]
+
+
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -637,13 +624,7 @@ def template4(event_id, recipient_id):
             "components": [
                 {
                     "type": "body",
-                    "parameters": [
-                        {"type": "text", "text": nome_message},
-                        {"type": "text", "text": nome_message2},
-                        {"type": "text", "text": inicio},
-                        {"type": "text", "text": local},
-                        {"type": "text", "text": termino}
-                    ]
+                    "parameters": parameters
                 }
             ]
         }
@@ -658,8 +639,7 @@ def template4(event_id, recipient_id):
         event_data['inicio'],
         event_data['termino'],       
         event_data['local'],   
-        nome_message,
-        nome_message2)
+        "","")
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local, event_id=event_id)
     else:
         print("Erro ao enviar Template 4:", response.json())
