@@ -142,22 +142,6 @@ def get_voluntarios_from_instituicao_som():
 
 
 
-
-
-# Função para atualizar dados de um evento no Firestore
-'''
-def update_event_data(event_id, voluntario_id):
-    try:
-        # Referência ao documento no Firestore
-        doc_ref = db.collection("evento").document(event_id)
-        doc_ref.update({"voluntario_corte_1": voluntario_id})
-        doc_ref.update({"voluntario_som_1": voluntario_id})
-        print(f"Dados do evento {event_id} atualizados com sucesso!")
-    except Exception as e:
-        print(f"Erro ao atualizar dados no Firestore: {e}")
-        '''
-
-
 # Função para atualizar dados de um evento no Firestore
 def update_event_data(event_id, voluntario_id, campo):
     try:
@@ -179,14 +163,7 @@ def update_event_data(event_id, voluntario_id, campo):
 
 
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, voluntario_corte_1, voluntario_som_1):
-    
-    if isinstance(voluntario_corte_1, list):
-        voluntario_corte_1 = ", ".join(voluntario_corte_1)
-    
-    
-    if isinstance(voluntario_som_1, list):
-        voluntario_som_1 = ", ".join(voluntario_som_1)
+def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, *kwargs):
     
     try:
 
@@ -199,14 +176,21 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
             "inicio": inicio,
             "termino": termino,
             "local": local,
-            "voluntario_corte_1": voluntario_corte_1,
-            "voluntario_som_1": voluntario_som_1,
+            #"voluntario_corte_1": voluntario_corte_1,
+            #"voluntario_som_1": voluntario_som_1,
             "event_id": event_id,
             "message_text": message_text,
             "button_payload": button_payload,  # Salvando o payload do botão
             "type": message_type,  # "received" ou "sent"
             "timestamp": firestore.SERVER_TIMESTAMP
         })
+
+        for key, value in kwargs.items():
+            # Se o valor for uma lista, converte para string separada por vírgulas
+            if isinstance(value, list):
+                value = ", ".join(value)
+            doc_ref[key] = value
+
         print("Mensagem salva no Firestore!")
     except Exception as e:
         print(f"Erro ao salvar no Firestore: {e}")
@@ -222,9 +206,6 @@ def send_message_to_whatsapp(event_id):
         print("Erro: Não foi possível obter os dados do evento.")
         return
 
-    #event_data_serialized = serialize_firestore_field(event_data)
-
-    #voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
     voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
     voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
 
@@ -243,20 +224,12 @@ def send_message_to_whatsapp(event_id):
     inicio = event_data["inicio"]
     termino = event_data["termino"]
     local = event_data["local"]
-    voluntario_corte_1 = voluntario_corte_1
-    voluntario_som_1 = voluntario_som_1
-
-    if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
-        print("Erro: Campos obrigatórios estão faltando.")
-        return
-    
-    if not all([evento, data, inicio, termino, local, voluntario_som_1]):
-        print("Erro: Campos obrigatórios estão faltando.")
-        return
-
-     # Exemplo de como você pode usar os nomes na mensagem
     nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
-    nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
+    nome_message2 = ", ".join(voluntario_som_1)
+
+    if not all([evento, data, inicio, termino, local]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
 
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
@@ -265,7 +238,7 @@ def send_message_to_whatsapp(event_id):
         "Content-Type": "application/json"
     }
 
-    message_data = {
+    message_data_corte = {
         "messaging_product": "whatsapp",
         "to": "5511950404471",  
         "type": "template",
@@ -312,10 +285,66 @@ def send_message_to_whatsapp(event_id):
         }
     }
 
-    response = requests.post(url, headers=headers, json=message_data)
 
-    if response.status_code == 200:
-        print("Template 1 enviado com sucesso!")
+    message_data_som = {
+        "messaging_product": "whatsapp",
+        "to": "5511950404471",  
+        "type": "template",
+        "template": {
+            "name": "template_11",  
+            "language": {
+                "code": "pt_BR"  
+            },
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                    {"type": "text", "text": evento},
+                    {"type": "text", "text": data},
+                    {"type": "text", "text": inicio},
+                    {"type": "text", "text": local},
+                    {"type": "text", "text": nome_message2},
+                    {"type": "text", "text": termino} 
+                    ]
+                },
+                {
+                "type": "button",  # Componente de botão
+                "sub_type": "quick_reply",  # Tipo do botão (quick reply)
+                "index": "0",  # Índice do botão
+                "parameters": [
+                    {
+                        "type": "payload",
+                        "payload": "sim"  # Valor associado ao botão
+                    }
+                ]
+            },
+            {
+                "type": "button",
+                "sub_type": "quick_reply",
+                "index": "1",
+                "parameters": [
+                    {
+                        "type": "payload",
+                        "payload": "nao"
+                    }
+                ]
+            }
+            ]
+        }
+    }
+
+   
+        # Enviar mensagem para Matheus
+    response_corte = requests.post(url, headers=headers, json=message_data_corte)
+    if response_corte.status_code == 200:
+        print(f"Mensagem enviada para '{voluntario_corte_1}' com sucesso!")
+
+        if isinstance(voluntario_corte_1, list):
+            voluntario_corte_1 = ", ".join(voluntario_corte_1)
+    
+        if isinstance(voluntario_som_1, list):
+            voluntario_som_1 = ", ".join(voluntario_som_1)
+
         save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", 
         event_data['evento'],
         event_data['data'],    
@@ -324,19 +353,39 @@ def send_message_to_whatsapp(event_id):
         event_data['local'],
         nome_message, "")
 
-
-        # Atualizar os dados do evento no Firestore
+         # Atualizar os dados do evento no Firestore
         voluntario_id = voluntario_corte_1_id[0]
         update_event_data(event_id, voluntario_id, "corte")
+    else:
+        print(f"Erro ao enviar mensagem para '{voluntario_corte_1}':", response_corte.json())
 
+    # Enviar mensagem para Manoel
+    response_som = requests.post(url, headers=headers, json=message_data_som)
+    if response_som.status_code == 200:
+        print(f"Mensagem enviada para '{voluntario_som_1}' com sucesso!")
+
+        if isinstance(voluntario_corte_1, list):
+            voluntario_corte_1 = ", ".join(voluntario_corte_1)
+    
+    
+        if isinstance(voluntario_som_1, list):
+            voluntario_som_1 = ", ".join(voluntario_som_1)
+            
+        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", 
+        event_data['evento'],
+        event_data['data'],    
+        event_data['inicio'],
+        event_data['termino'],      
+        event_data['local'],
+        "", nome_message2)
 
         #Ou pro som
         voluntario_id = voluntario_som_1_id[0]
         update_event_data(event_id, voluntario_id, "som")
-
     else:
-        print("Erro ao enviar a mensagem inicial:", response.json())
+        print(f"Erro ao enviar mensagem para '{voluntario_som_1}':", response_som.json())
 
+        
 
 # Template 2
 def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
