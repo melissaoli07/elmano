@@ -198,7 +198,7 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
 
 
 
-#Template 1
+#Template 1 - mandando para 2 ao mesmo tempo mas sendo especificado 
 def send_message_to_whatsapp(event_id):
     # Buscar os dados do evento no Firestore
     event_data = get_event_data(event_id)
@@ -384,6 +384,264 @@ def send_message_to_whatsapp(event_id):
         update_event_data(event_id, voluntario_id, "som")
     else:
         print(f"Erro ao enviar mensagem para '{voluntario_som_1}':", response_som.json())
+
+
+#Template 1 - mandando so pra um
+def send_message_to_whatsapp(event_id):
+    # Buscar os dados do evento no Firestore
+    event_data = get_event_data(event_id)
+    if not event_data:
+        print("Erro: Não foi possível obter os dados do evento.")
+        return
+
+    voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
+    voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
+
+    if not voluntario_corte_1 or not voluntario_corte_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
+    
+    if not voluntario_som_1 or not voluntario_som_1_id:
+        print("Erro: Nenhum voluntário encontrado.")
+        return
+
+
+    # Variáveis do evento
+    evento = event_data["evento"]
+    data = event_data["data"]
+    inicio = event_data["inicio"]
+    termino = event_data["termino"]
+    local = event_data["local"]
+    nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
+
+    if not all([evento, data, inicio, termino, local]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
+
+
+    url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    message_data_corte = {
+        "messaging_product": "whatsapp",
+        "to": "5511950404471",  
+        "type": "template",
+        "template": {
+            "name": "template_11",  
+            "language": {
+                "code": "pt_BR"  
+            },
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                    {"type": "text", "text": evento},
+                    {"type": "text", "text": data},
+                    {"type": "text", "text": inicio},
+                    {"type": "text", "text": local},
+                    {"type": "text", "text": nome_message},
+                    {"type": "text", "text": termino} 
+                    ]
+                },
+                {
+                "type": "button",  # Componente de botão
+                "sub_type": "quick_reply",  # Tipo do botão (quick reply)
+                "index": "0",  # Índice do botão
+                "parameters": [
+                    {
+                        "type": "payload",
+                        "payload": "sim"  # Valor associado ao botão
+                    }
+                ]
+            },
+            {
+                "type": "button",
+                "sub_type": "quick_reply",
+                "index": "1",
+                "parameters": [
+                    {
+                        "type": "payload",
+                        "payload": "nao"
+                    }
+                ]
+            }
+            ]
+        }
+    }
+
+
+   
+        # Enviar mensagem para Matheus
+    response_corte = requests.post(url, headers=headers, json=message_data_corte)
+    if response_corte.status_code == 200:
+        print(f"Mensagem enviada para '{voluntario_corte_1}' com sucesso!")
+
+        if isinstance(voluntario_corte_1, list):
+            voluntario_corte_1 = ", ".join(voluntario_corte_1)
+    
+        if isinstance(voluntario_som_1, list):
+            voluntario_som_1 = ", ".join(voluntario_som_1)
+
+        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", 
+        event_data['evento'],
+        event_data['data'],    
+        event_data['inicio'],
+        event_data['termino'],      
+        event_data['local'],
+        nome_message, "")
+
+         # Atualizar os dados do evento no Firestore
+        voluntario_id = voluntario_corte_1_id[0]
+        update_event_data(event_id, voluntario_id, "corte")
+    else:
+        print(f"Erro ao enviar mensagem para '{voluntario_corte_1}':", response_corte.json())
+
+
+#Template 1 - função send_message_to_whatsapp fazendo por parametro   
+
+
+
+def get_voluntarios_by_field(field_name):
+    """
+    Obtém os voluntários e seus IDs de acordo com o campo especificado no Firestore.
+    
+    :param field_name: Nome do campo relacionado aos voluntários (ex: 'voluntario_corte_1').
+    :return: Uma tupla (voluntarios, ids), onde:
+             - voluntarios é uma lista de nomes dos voluntários.
+             - ids é uma lista de IDs dos voluntários.
+    """
+    try:
+        # Referência para a coleção de voluntários
+        voluntarios_ref = db.collection("voluntários")
+        
+        # Consulta baseada no campo fornecido
+        query = voluntarios_ref.where("field", "==", field_name).stream()
+        
+        voluntarios = []
+        ids = []
+        
+        # Itera pelos resultados
+        for doc in query:
+            data = doc.to_dict()
+            voluntarios.append(data.get("name"))
+            ids.append(doc.id)  # Assume que o ID do documento é o identificador do voluntário
+        
+        return voluntarios, ids
+    
+    except Exception as e:
+        print(f"Erro ao acessar o Firestore: {e}")
+        return [], []
+
+
+
+
+
+
+
+def send_message_to_whatsapp(event_id):
+    # Buscar os dados do evento no Firestore
+    event_data = get_event_data(event_id)
+    if not event_data:
+        print("Erro: Não foi possível obter os dados do evento.")
+        return
+
+    # Identificar campos relacionados a voluntários
+    voluntarios_necessarios = [
+        key for key in event_data.keys() if "voluntario" in key.lower()
+    ]
+
+    if not voluntarios_necessarios:
+        print("Erro: Nenhum campo de voluntário encontrado no evento.")
+        return
+
+    # Obter os voluntários necessários de acordo com os campos
+    voluntarios_data = {}
+    for voluntario_field in voluntarios_necessarios:
+        voluntarios, voluntarios_id = get_voluntarios_by_field(voluntario_field)
+        if not voluntarios or not voluntarios_id:
+            print(f"Erro: Nenhum voluntário encontrado para o campo '{voluntario_field}'.")
+            return
+        voluntarios_data[voluntario_field] = {
+            "names": voluntarios,
+            "ids": voluntarios_id
+        }
+
+    # Variáveis do evento
+    evento = event_data.get("evento")
+    data = event_data.get("data")
+    inicio = event_data.get("inicio")
+    termino = event_data.get("termino")
+    local = event_data.get("local")
+
+    if not all([evento, data, inicio, termino, local]):
+        print("Erro: Campos obrigatórios estão faltando.")
+        return
+
+    # Preparar a mensagem com base nos voluntários identificados
+    nomes_voluntarios = ", ".join(
+        [", ".join(data["names"]) for data in voluntarios_data.values()]
+    )
+
+    url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json"
+    }
+
+    message_data = {
+        "messaging_product": "whatsapp",
+        "to": "5511950404471",
+        "type": "template",
+        "template": {
+            "name": "template_11",
+            "language": {"code": "pt_BR"},
+            "components": [
+                {
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": evento},
+                        {"type": "text", "text": data},
+                        {"type": "text", "text": inicio},
+                        {"type": "text", "text": local},
+                        {"type": "text", "text": nomes_voluntarios},
+                        {"type": "text", "text": termino}
+                    ]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "0",
+                    "parameters": [{"type": "payload", "payload": "sim"}]
+                },
+                {
+                    "type": "button",
+                    "sub_type": "quick_reply",
+                    "index": "1",
+                    "parameters": [{"type": "payload", "payload": "nao"}]
+                }
+            ]
+        }
+    }
+
+    # Enviar mensagem
+    response = requests.post(url, headers=headers, json=message_data)
+    if response.status_code == 200:
+        print(f"Mensagem enviada para '{nomes_voluntarios}' com sucesso!")
+
+        # Salvar mensagens e atualizar evento
+        save_message_to_firestore(
+            event_id, "15551910903", "sent", "5511950404471", 
+            "message_text", "button_payload", evento, data, inicio, termino, local, 
+            nomes_voluntarios, ""
+        )
+
+        for field, data in voluntarios_data.items():
+            update_event_data(event_id, data["ids"][0], field)
+    else:
+        print(f"Erro ao enviar mensagem para '{nomes_voluntarios}':", response.json())
 
         
 
