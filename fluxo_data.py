@@ -17,7 +17,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO0gPOrqsl5kYK2wMmvu8iDrzxl5UtcQOy595WQT8kLCp7iW7QyrxPUrmiP1j1WqemcqbyVujSRmMIFNYXwZCuP7gOILN4yKu412yGQeO3vZBP7nAPZA4uvXmfj7D6qRBnjxyZCByh8pjuZBKP0R1IHDVpEWKHLbbZCvqvlZBikdERXzhjBZCy4mf7llfJ0UJVbp0vHYH8E6cobubSvKPsZAHMxYb6"
+access_token = "EAATXaSQjmX8BOwhhScB3kA1mOmZBAojCNJmVZBAWLc8oZBaU0WmZAivpkAt0d2rDhBMKnJjTPRyIvQhYLbIMJCAC7Qrcj0Q6Jlh7CcR7EoZB6ie74ZBfKemowfntFo9bCj9wiW0ZAXZC1xZCAbnvZBA25DicWCiJfodDbNS4TxiJ5IBywBNHgcaO45MW6hZA9SwD4ZAbZC5pwD6QfFmSwEtxnHKjzLR71XpC8jei7MmBR"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -138,24 +138,6 @@ def get_voluntarios_from_instituicao_som():
         print(f"Erro ao buscar voluntários na coleção 'voluntários': {e}")
         return [], []
 
-
-
-
-
-
-
-# Função para atualizar dados de um evento no Firestore
-'''
-def update_event_data(event_id, voluntario_id):
-    try:
-        # Referência ao documento no Firestore
-        doc_ref = db.collection("evento").document(event_id)
-        doc_ref.update({"voluntario_corte_1": voluntario_id})
-        doc_ref.update({"voluntario_som_1": voluntario_id})
-        print(f"Dados do evento {event_id} atualizados com sucesso!")
-    except Exception as e:
-        print(f"Erro ao atualizar dados no Firestore: {e}")
-        '''
 
 
 # Função para atualizar dados de um evento no Firestore
@@ -282,7 +264,7 @@ def send_message_to_whatsapp(event_id):
                     {"type": "text", "text": data},
                     {"type": "text", "text": inicio},
                     {"type": "text", "text": local},
-                    {"type": "text", "text": nome_message},
+                    {"type": "text", "text": nome_message2},
                     {"type": "text", "text": termino} 
                     ]
                 },
@@ -322,7 +304,7 @@ def send_message_to_whatsapp(event_id):
         event_data['inicio'],
         event_data['termino'],      
         event_data['local'],
-        nome_message, "")
+        "", nome_message2)
 
 
         # Atualizar os dados do evento no Firestore
@@ -438,7 +420,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         event_data['inicio'], 
         event_data['termino'],
         event_data['local'],
-        nome_message2, "")
+        "", nome_message2)
 
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
@@ -547,7 +529,7 @@ def template3(event_id, recipient_id, message_text):
         event_data['inicio'],  
         event_data['termino'],  
         event_data['local'],
-        nome_message2,"")
+        "", nome_message2)
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, hora=hora, local=local, event_id=event_id)
     else:
         print("Erro ao enviar a resposta:", response.json())
@@ -636,7 +618,7 @@ def template4(event_id, recipient_id):
         event_data['inicio'],
         event_data['termino'],       
         event_data['local'],   
-        nome_message2,"")
+        "", nome_message2)
         #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local, event_id=event_id)
     else:
         print("Erro ao enviar Template 4:", response.json())
