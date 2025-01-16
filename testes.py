@@ -18,7 +18,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO8IqXLry7NYOD3BboSkTZBIEAS9Lpjmul5TWHDZABFgQ0dpDOq5RZCTMZAOprurOWECkNIU4bNwi1fDeBvvqZBOLCPlvaGD6P6rMO5dn9ds0zNZA9gKEEYpjeIv1uODe1M3EfUOdEIlqBOXOafMW6drewebhaqA0Lwgh36gQJZC8SasGrFIh58G6sLGAfHfBFyK2jaebbN9gsMsiZCK34EPMd9cZD"
+access_token = "EAATXaSQjmX8BOwvFIdSHuBjZBuQ63A0evSA8NI6c5NAOG8vfsJZCZCfcZClaUwf9KwZCjbN1Y28hz48bjKZAnfvUWz06TeI6gHV8GqZCGmugHxhpf54ZAF21YnaIgYOZBGKsUcQo0LL60jV7tFnaCOTMNW3yVxXuOShadUglLeytnQGwDsgLowIureT92xOZCduf2v8SUtZCUZBrKMY9qFeZBnIDTkpBCerRd1b6J0fUZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -61,7 +61,7 @@ def pegar_dados_evento(event_id):
                 "termino": convert_to_local(data.get("término")),
                 "local": data.get("local", ""),
                 "instituicao":  data.get("instituição", ""),
-                "voluntarios": data.get("voluntarios", [])
+                "voluntarios": data.get("voluntarios", []),
             }
         
         else:
@@ -178,7 +178,7 @@ def atualizar_voluntarios(event_id, voluntarios):
             
 
 # Função para salvar mensagens no Firestore com campos separados
-def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, nome_message, **kwargs):
+def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, message_text, button_payload, evento, data, inicio, termino, local, nome_message, area, **kwargs):
     
     try:
 
@@ -197,6 +197,7 @@ def save_message_to_firestore(event_id,sender_id, message_type, recipient_id, me
             "type": message_type,  # "received" ou "sent"
             "timestamp": firestore.SERVER_TIMESTAMP,
             "nome_voluntario": nome_message,
+            "area": area
         }
 
         # Aqui você pode tratar os voluntários dinamicamente
@@ -250,6 +251,7 @@ def send_message_to_whatsapp(event_id):
         print("Voluntários disponíveis:", voluntarios_nome)
     else:
         print("Não foi possível obter os dados do evento.")
+        return
 
 
 
@@ -274,6 +276,7 @@ def send_message_to_whatsapp(event_id):
     for voluntario in voluntarios_nome:
         nome_message = voluntario.get("nome", "Voluntário")
         numero_celular = voluntario.get("numero_celular", "")
+        area = voluntario.get("habilidade", "Não especificada")
 
         if not numero_celular:
             print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
@@ -284,7 +287,7 @@ def send_message_to_whatsapp(event_id):
             "to": numero_celular,
             "type": "template",
             "template": {
-                "name": "template_11",
+                "name": "template_1_cargo",
                 "language": {"code": "pt_BR"},
                 "components": [
                     {
@@ -295,7 +298,8 @@ def send_message_to_whatsapp(event_id):
                             {"type": "text", "text": inicio},
                             {"type": "text", "text": local},
                             {"type": "text", "text": nome_message},
-                            {"type": "text", "text": termino}
+                            {"type": "text", "text": termino},
+                            {"type": "text", "text": area}
                         ]
                     },
                     {
@@ -323,7 +327,7 @@ def send_message_to_whatsapp(event_id):
             save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, 
                                     "message_text", "button_payload", event_data['evento'], 
                                     event_data['data'], event_data['inicio'], event_data['termino'],
-                                    event_data['local'], nome_message=nome_message)
+                                    event_data['local'], nome_message=nome_message, area=area)
             
             
             # Atualizar os dados do evento no Firestore
@@ -373,11 +377,14 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
     for voluntario in voluntarios_nome:
         nome_message = voluntario.get("nome", "Voluntário")
         numero_celular = voluntario.get("numero_celular", "")
+        area = voluntario.get("habilidade", "Não especificada")
 
         if not numero_celular:
             print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
             continue
     
+        message_data = {}
+
         # Verificar se a mensagem é "sim" 
         if button_payload == "sim":
             message_data = {
@@ -385,7 +392,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
                 "to": numero_celular,
                 "type": "template",
                 "template": {
-                    "name": "template2",  
+                    "name": "template_22_cargo",  
                     "language": {
                         "code": "pt_BR"  
                     },
@@ -397,7 +404,8 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
                             {"type": "text", "text": data},
                             {"type": "text", "text": inicio},
                             {"type": "text", "text": local},
-                            {"type": "text", "text": termino}
+                            {"type": "text", "text": termino},
+                            {"type": "text", "text": area}
                             ]
                         }
                     ]
@@ -409,7 +417,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         elif button_payload == "nao":
             message_data = {
                 "messaging_product": "whatsapp",
-                "to": recipient_id,
+                "to": numero_celular,
                 "type": "text",
                 "text": {
                     "body": "Ok. Obrigada pela resposta."
@@ -421,12 +429,13 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
 
         if response.status_code == 200 and button_payload == "sim":
             print("Resposta enviada com sucesso!")
-            save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload", "",
-            event_data['data'],    
-            event_data['inicio'], 
+            save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload",
+            "",    
+            event_data['data'], 
+            event_data['inicio'],
             event_data['termino'],
-            event_data['local'],
-            "", nome_message)
+            event_data['local'], 
+            nome_message=nome_message, area=area)
 
             atualizar_voluntarios(event_id, voluntarios_nome)
 
@@ -481,6 +490,7 @@ def template3(event_id, recipient_id, message_text):
     for voluntario in voluntarios_nome:
         nome_message = voluntario.get("nome", "Voluntário")
         numero_celular = voluntario.get("numero_celular", "")
+        area = voluntario.get("habilidade", "Não especificada")
 
         if not numero_celular:
             print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
@@ -494,7 +504,7 @@ def template3(event_id, recipient_id, message_text):
             "to": numero_celular,
             "type": "template",
             "template": {
-                "name": "template3",  
+                "name": "template_3_cargo",  
                 "language": {
                     "code": "pt_BR"  
                 },
@@ -506,7 +516,8 @@ def template3(event_id, recipient_id, message_text):
                         {"type": "text", "text": data},
                         {"type": "text", "text": inicio},
                         {"type": "text", "text": local},
-                        {"type": "text", "text": termino}
+                        {"type": "text", "text": termino},
+                        {"type": "text", "text": area}
                         ]
                     }
                 ]
@@ -529,41 +540,37 @@ def template3(event_id, recipient_id, message_text):
 
         if response.status_code == 200:
             print("Resposta enviada com sucesso!")
-            #save_message_to_firestore("15551910903", "sent", nome, data, hora, local, )
-            save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload", "",
-            event_data['data'],    
-            event_data['inicio'],  
-            event_data['termino'],  
-            event_data['local'],
-            "", nome_message)
+            save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload",
+            "",    
+            event_data['data'], 
+            event_data['inicio'],
+            event_data['termino'],
+            event_data['local'], 
+            nome_message=nome_message, area=area)
 
             atualizar_voluntarios(event_id, voluntarios_nome)
         else:
             print("Erro ao enviar a resposta:", response.json())
 
-'''
 
 
 # Template 4
 def template4(event_id, recipient_id):
 
     # Buscar os dados do evento no Firestore
-    event_data = get_event_data(event_id)
-    if not event_data:
-        print("Erro: Não foi possível obter os dados do evento.")
-        return
+    event_data = pegar_dados_evento(event_id)
+    if event_data:
+        # Buscar voluntários disponíveis com base nos dados do evento
+        voluntarios_nome = buscar_voluntarios(
+        event_data["voluntarios"],
+        event_data["instituicao"]
+        )
 
-    #voluntario_corte_1, voluntario_corte_1_id = get_nome_from_another_collection()
-    voluntario_corte_1, voluntario_corte_1_id = get_voluntarios_from_instituicao_corte()
-    voluntario_som_1, voluntario_som_1_id = get_voluntarios_from_instituicao_som()
-
-    if not voluntario_corte_1 or not voluntario_corte_1_id:
-        print("Erro: Nenhum voluntário encontrado.")
-        return
-    
-    if not voluntario_som_1 or not voluntario_som_1_id:
-        print("Erro: Nenhum voluntário encontrado.")
-        return
+        # Atualizar os dados de voluntários no evento, se necessário
+        print("Dados do evento:", event_data)
+        print("Voluntários disponíveis:", voluntarios_nome)
+    else:
+        print("Não foi possível obter os dados do evento.")
     
 
     # Variáveis do evento
@@ -572,20 +579,11 @@ def template4(event_id, recipient_id):
     inicio = event_data["inicio"]
     termino = event_data["termino"]
     local = event_data["local"]
-    voluntario_corte_1 = voluntario_corte_1
-    voluntario_som_1 = voluntario_som_1
 
-    if not all([evento, data, inicio, termino, local, voluntario_corte_1]):
+
+    if not all([evento, data, inicio, termino, local]):
         print("Erro: Campos obrigatórios estão faltando.")
         return
-    
-    if not all([evento, data, inicio, termino, local, voluntario_som_1]):
-        print("Erro: Campos obrigatórios estão faltando.")
-        return
-
-     # Exemplo de como você pode usar os nomes na mensagem
-    nome_message = ", ".join(voluntario_corte_1)  # Concatena os nomes em uma string
-    nome_message2 = ", ".join(voluntario_som_1)  # Concatena os nomes em uma string
 
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
@@ -594,46 +592,99 @@ def template4(event_id, recipient_id):
         "Content-Type": "application/json"
     }
 
-    message_data = {
-        "messaging_product": "whatsapp",
-        "to": "5511950404471",  
-        "type": "template",
-        "template": {
-            "name": "template4",  
-            "language": {
-                "code": "pt_BR"  
-            },
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": [
-                    {"type": "text", "text": nome_message2},
-                    {"type": "text", "text": inicio},
-                    {"type": "text", "text": local}, 
-                    {"type": "text", "text": termino},
-                    ]
-                }
-            ]
+    for voluntario in voluntarios_nome:
+        nome_message = voluntario.get("nome", "Voluntário")
+        numero_celular = voluntario.get("numero_celular", "")
+        area = voluntario.get("habilidade", "Não especificada")
+
+        if not numero_celular:
+            print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
+            continue
+
+        message_data = {
+            "messaging_product": "whatsapp",
+            "to": numero_celular,  
+            "type": "template",
+            "template": {
+                "name": "template_4_cargo",  
+                "language": {
+                    "code": "pt_BR"  
+                },
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                        {"type": "text", "text": nome_message},
+                        {"type": "text", "text": inicio},
+                        {"type": "text", "text": local}, 
+                        {"type": "text", "text": termino},
+                        {"type": "text", "text": area}
+                        ]
+                    }
+                ]
+            }
         }
-    }
 
-    response = requests.post(url, headers=headers, json=message_data)
+        response = requests.post(url, headers=headers, json=message_data)
 
-    if response.status_code == 200:
-        print("Template 4 enviado com sucesso!")
-        #save_message_to_firestore("15551910903", "sent" ,nome, data, local, "sent")
-        save_message_to_firestore(event_id, "15551910903", "sent", "5511950404471", "message_text", "button_payload", "", "",  
-        event_data['inicio'],
-        event_data['termino'],       
-        event_data['local'],   
-        "", nome_message2)
-        #save_message_to_firestore("15551910903", "sent", "5511950404471", nome=nome, data=data, local=local, event_id=event_id)
-    else:
-        print("Erro ao enviar Template 4:", response.json())
+        if response.status_code == 200:
+            print("Template 4 enviado com sucesso!")
+            
+            save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload", 
+            "",  "",
+            event_data['inicio'],
+            event_data['termino'],       
+            event_data['local'],   
+            nome_message=nome_message, area=area)
+            
+            atualizar_voluntarios(event_id, voluntarios_nome)
+
+        else:
+            print("Erro ao enviar Template 4:", response.json())
 
 
+@app.route('/webhook', methods=['GET', 'POST'])
+def webhook():
+    if request.method == 'GET':
+        token = request.args.get('hub.verify_token')
+        if token == "elmano":
+            return request.args.get('hub.challenge')
+        else:
+            return 'Token inválido', 403
+    elif request.method == 'POST':
+        data = request.get_json()
 
-'''
+        if data.get("entry"):
+            for entry in data["entry"]:
+                if "changes" in entry:
+                    for change in entry["changes"]:
+                        if "messages" in change["value"]:
+                            for message in change["value"]["messages"]:
+                                sender_id = message["from"]
+                                recipient_id = change["value"].get("metadata", {}).get("display_phone_number")   
+                                message_text = message.get("text", {}).get("body", "")
+                                # Verificar se há um botão
+                                if "button" in message:
+                                    button_payload = message["button"].get("payload")
+                                    if button_payload:
+                                        print(f"Payload do botão recebido: {button_payload}")
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome_message=None, area=None)
+                                        # Lógica com base no payload do botão
+                                        reply_to_whatsapp_message(event_id, sender_id, button_payload)
+                                        # Continuar a lógica com base no payload
+                                        if user_state.get(sender_id) == "awaiting_template2_response" and button_payload == "Tudo certo!":
+                                            template3(event_id, sender_id, "Tudo certo!")
+                                            user_state[sender_id] = "awaiting_template3_response"
+                                        elif user_state.get(sender_id) == "awaiting_template3_response":
+                                            template4(event_id,sender_id)
+                                            user_state[sender_id] = None
+                                else:
+                                    message_text = message.get("text", {}).get("body", "").lower()
+                                    save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome_message=None, area=None)
+                                    reply_to_whatsapp_message(sender_id, message_text)
+
+        return jsonify({"status": "received"}), 200
+
 
 if __name__ == "__main__":
     event_id = "8"
