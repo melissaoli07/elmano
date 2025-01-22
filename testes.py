@@ -18,7 +18,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOwvFIdSHuBjZBuQ63A0evSA8NI6c5NAOG8vfsJZCZCfcZClaUwf9KwZCjbN1Y28hz48bjKZAnfvUWz06TeI6gHV8GqZCGmugHxhpf54ZAF21YnaIgYOZBGKsUcQo0LL60jV7tFnaCOTMNW3yVxXuOShadUglLeytnQGwDsgLowIureT92xOZCduf2v8SUtZCUZBrKMY9qFeZBnIDTkpBCerRd1b6J0fUZD"
+access_token = "EAATXaSQjmX8BOZBAYCOgoZAQqPhrYK60jKqViKvh0ckEgbqjc8hsuLjJwic701dUUufYI4Gs00G5zmqdWOCAHUZCvZCMaNd1OhoFguacoQcqNCOhAE3D1td5Yswfe2HOhtrtU1LttjcR9KKMkTLtkZAEEW9aHSkMQIO14coAVMG8OFRAwQoCe7RzelNvQ9L8kzPK7rKe0hIWAVN27g5g3GgkgeZCIzt4ujrQQZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -30,6 +30,20 @@ def serialize_firestore_field(value):
         return value.isoformat()
     return value
 
+
+def convert_to_local(dt):
+    local_tz = pytz.timezone("America/Sao_Paulo")
+    if isinstance(dt, DatetimeWithNanoseconds):
+        return dt.astimezone(local_tz).strftime("%H:%M")
+    return ""
+
+def convert_to_local_date(dt):
+    local_tz = pytz.timezone("America/Sao_Paulo")
+    if isinstance(dt, DatetimeWithNanoseconds):
+        return dt.astimezone(local_tz).strftime("%d/%m/%Y")  # Formato dia/mês/ano
+    return ""
+
+
 def pegar_dados_evento(event_id):
     try:
         # Referência ao documento no Firestore
@@ -38,18 +52,6 @@ def pegar_dados_evento(event_id):
 
         if doc.exists:
             data = doc.to_dict()
-            local_tz = pytz.timezone("America/Sao_Paulo")
-
-            def convert_to_local(dt):
-                if isinstance(dt, DatetimeWithNanoseconds):
-                    return dt.astimezone(local_tz).strftime("%H:%M")
-                return ""
-
-            def convert_to_local_date(dt):
-                if isinstance(dt, DatetimeWithNanoseconds):
-                    return dt.astimezone(local_tz).strftime("%d/%m/%Y")  # Formato dia/mês/ano
-                return ""
-
             print("Dados do evento encontrados:", data)
 
         
@@ -74,17 +76,22 @@ def pegar_dados_evento(event_id):
 
 
 
-def buscar_voluntarios(voluntarios, instituicao_evento):
+
+
+
+def buscar_voluntarios(voluntarios, instituicao_evento, evento_data, evento_inicio):
+    
+    local_tz = pytz.timezone("America/Sao_Paulo")
+
     try:
         voluntarios_nome = []
-
+        voluntarios_processados = set()  
 
         for i, voluntario in enumerate(voluntarios):
             if isinstance(voluntario, dict):  # Verificar se é um dicionário   
                 habilidade = voluntario.get("habilidade", "")
 
-            
-                #buscar na coleçao voluntariso com a mesma instituição e a mesma habilidade
+                # Buscar na coleção "voluntários" com a mesma instituição e habilidade
                 query = (
                     db.collection("voluntários")
                     .where("habilidades", "array_contains", habilidade)
@@ -92,32 +99,87 @@ def buscar_voluntarios(voluntarios, instituicao_evento):
                     .get()
                 )
 
-                if query:
+                for query_doc in query:
                     voluntario_doc = query[0].to_dict()
                     voluntario_id = query[0].id 
 
-                    numero_celular = voluntario_doc.get("nº celular", "Não encontrado")
+                    if voluntario_id in voluntarios_processados:
+                        continue
 
-                    voluntarios_nome.append({
-                    "nome": voluntario_doc.get("nome", ""),
-                    "id": voluntario_id,
-                    "habilidade": habilidade,
-                    "numero_celular": numero_celular 
-                    })
+                    numero_celular = voluntario_doc.get("nº celular", "Não encontrado")
+                    datas_disponiveis = voluntario_doc.get("datas", [])  # Lista ou único timestamp
+                    
+                    # Exibindo dados para depuração
+                    print(f"Voluntário: {voluntario_doc.get('nome', 'Não encontrado')}")
+                    print(f"Datas disponíveis: {datas_disponiveis}")
+                    print(f"Evento - Data: {evento_data}, Início: {evento_inicio}")
+                    
+                    # Comparar as datas disponíveis com a data e hora do evento
+                    horario_correspondente = None
+                    
+                    # Convertendo a data e hora do evento para o fuso horário local
+                    evento_data_local = datetime.strptime(evento_data, "%d/%m/%Y").date()
+                    evento_inicio_local = datetime.strptime(evento_inicio, "%H:%M").time()
+
+                    # Verificando se datas_disponiveis é uma lista
+                    if isinstance(datas_disponiveis, list):  
+                        print(f"Datas disponíveis são uma lista. Verificando correspondência...")
+                        for data in datas_disponiveis:
+                            if isinstance(data, DatetimeWithNanoseconds):
+                                # Convertendo cada data para o fuso horário local
+                                data_local = data.astimezone(local_tz)  # Para usar o mesmo fuso horário da comparação
+                                data_convertida = data_local.date()
+                                horario_convertido = data_local.time().replace(microsecond=0)  # Ignorando nanosegundos
+                                
+                                # Verificando a correspondência entre a data e o horário
+                                if data_convertida == evento_data_local and horario_convertido == evento_inicio_local:
+                                    horario_correspondente = data
+                                    print(f"Correspondência encontrada para: {data_convertida} - {horario_convertido}")
+                                    break  # Encontrou correspondência, sai do loop
+                                else:
+                                    print(f"Sem correspondência para: {data_convertida} - {horario_convertido}")
+                    else:
+                        print(f"Datas disponíveis não são uma lista. Verificando única data...")
+                        # Se for um único Timestamp
+                        if isinstance(datas_disponiveis, DatetimeWithNanoseconds):  
+                            data_local = datas_disponiveis.astimezone(local_tz)
+                            data_convertida = data_local.date()
+                            horario_convertido = data_local.time().replace(microsecond=0)  # Ignorando nanosegundos
+                            
+                            if data_convertida == evento_data_local and horario_convertido == evento_inicio_local:
+                                horario_correspondente = datas_disponiveis
+                                print(f"Correspondência encontrada para: {data_convertida} - {horario_convertido}")
+
+                    if horario_correspondente:  # Se houver uma correspondência
+                        if voluntario_id not in voluntarios_processados:
+                            voluntarios_nome.append({
+                                "nome": voluntario_doc.get("nome", ""),
+                                "id": voluntario_id,
+                                "habilidade": habilidade,
+                                "numero_celular": numero_celular
+                            })
+                            voluntarios_processados.add(voluntario_id)
+                        else:
+                            print(f"Voluntário '{voluntario_doc.get('nome', 'Não encontrado')}' já foi adicionado.")
+                    else:
+                        print(f"Voluntário '{voluntario_doc.get('nome', 'Não encontrado')}' indisponível para a data e horário do evento.")
                 else:
                     voluntarios_nome.append({
                         "nome": "Não encontrado",
                         "habilidade": habilidade,
-                        "numero_celular": "Nao encontrado"
+                        "numero_celular": "Não encontrado"
                     })
             else: 
                 print(f"Voluntário no índice {i} não é um dicionário válido!")
-                
+
         return voluntarios_nome
-    
+
     except Exception as e:
         print(f"Erro ao buscar voluntários disponíveis no Firestore: {e}")
         return []
+
+
+
 
 
 
@@ -243,7 +305,9 @@ def send_message_to_whatsapp(event_id):
         # Buscar voluntários disponíveis com base nos dados do evento
         voluntarios_nome = buscar_voluntarios(
         event_data["voluntarios"],
-        event_data["instituicao"]
+        event_data["instituicao"], 
+        event_data["data"],
+        event_data["inicio"]
         )
 
         # Atualizar os dados de voluntários no evento, se necessário
