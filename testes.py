@@ -6,6 +6,7 @@ from google.cloud import firestore
 import os
 from google.cloud.firestore_v1._helpers import DatetimeWithNanoseconds
 from datetime import datetime
+import uuid
 import pytz
 
 
@@ -18,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOZBAYCOgoZAQqPhrYK60jKqViKvh0ckEgbqjc8hsuLjJwic701dUUufYI4Gs00G5zmqdWOCAHUZCvZCMaNd1OhoFguacoQcqNCOhAE3D1td5Yswfe2HOhtrtU1LttjcR9KKMkTLtkZAEEW9aHSkMQIO14coAVMG8OFRAwQoCe7RzelNvQ9L8kzPK7rKe0hIWAVN27g5g3GgkgeZCIzt4ujrQQZD"
+access_token = "EAATXaSQjmX8BOyRw0Y54UqkFRiTWBSQCct6gbJAg1ZBpmR9xVUkoHtCwDWPNiv1tZB1qjB9EOCcZAsBkFVnbfyr5e6i97ZBBVB9i9ZBAd1LZAHxrtFUjnftbI7by0TAGThEN7vYcB5k4MhldMXSrgWFW6vZBCUlttgpaOxLZCvfT9XSjuPCyu8hVkh61u2biLfbxb4CJiNoM5O9vw1pOnW9yaZCzBbwiY5VZCl2xAZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -99,9 +100,15 @@ def buscar_voluntarios(voluntarios, instituicao_evento, evento_data, evento_inic
                     .get()
                 )
 
+                voluntario_encontrado = False
+
+                #for query_doc in query:
+                    #voluntario_doc = query[0].to_dict()
+                    #voluntario_id = query[0].id 
                 for query_doc in query:
-                    voluntario_doc = query[0].to_dict()
-                    voluntario_id = query[0].id 
+                    voluntario_doc = query_doc.to_dict()
+                    voluntario_id = query_doc.id
+
 
                     if voluntario_id in voluntarios_processados:
                         continue
@@ -114,12 +121,14 @@ def buscar_voluntarios(voluntarios, instituicao_evento, evento_data, evento_inic
                     print(f"Datas disponíveis: {datas_disponiveis}")
                     print(f"Evento - Data: {evento_data}, Início: {evento_inicio}")
                     
+                    # Convertendo a data e hora do evento para o fuso horário local
+                    evento_data_local = datetime.strptime(evento_data, "%d/%m/%Y").date()
+                    evento_inicio_local = datetime.strptime(evento_inicio, "%H:%M").time()               
+
+
                     # Comparar as datas disponíveis com a data e hora do evento
                     horario_correspondente = None
                     
-                    # Convertendo a data e hora do evento para o fuso horário local
-                    evento_data_local = datetime.strptime(evento_data, "%d/%m/%Y").date()
-                    evento_inicio_local = datetime.strptime(evento_inicio, "%H:%M").time()
 
                     # Verificando se datas_disponiveis é uma lista
                     if isinstance(datas_disponiveis, list):  
@@ -128,30 +137,15 @@ def buscar_voluntarios(voluntarios, instituicao_evento, evento_data, evento_inic
                             if isinstance(data, DatetimeWithNanoseconds):
                                 # Convertendo cada data para o fuso horário local
                                 data_local = data.astimezone(local_tz)  # Para usar o mesmo fuso horário da comparação
-                                data_convertida = data_local.date()
-                                horario_convertido = data_local.time().replace(microsecond=0)  # Ignorando nanosegundos
-                                
-                                # Verificando a correspondência entre a data e o horário
-                                if data_convertida == evento_data_local and horario_convertido == evento_inicio_local:
+                                if data_local.date() == evento_data_local and data_local.time().replace(microsecond=0) == evento_inicio_local:
                                     horario_correspondente = data
-                                    print(f"Correspondência encontrada para: {data_convertida} - {horario_convertido}")
-                                    break  # Encontrou correspondência, sai do loop
-                                else:
-                                    print(f"Sem correspondência para: {data_convertida} - {horario_convertido}")
-                    else:
-                        print(f"Datas disponíveis não são uma lista. Verificando única data...")
-                        # Se for um único Timestamp
-                        if isinstance(datas_disponiveis, DatetimeWithNanoseconds):  
-                            data_local = datas_disponiveis.astimezone(local_tz)
-                            data_convertida = data_local.date()
-                            horario_convertido = data_local.time().replace(microsecond=0)  # Ignorando nanosegundos
-                            
-                            if data_convertida == evento_data_local and horario_convertido == evento_inicio_local:
-                                horario_correspondente = datas_disponiveis
-                                print(f"Correspondência encontrada para: {data_convertida} - {horario_convertido}")
+                                    break
+                    elif isinstance(datas_disponiveis, DatetimeWithNanoseconds):
+                        data_local = datas_disponiveis.astimezone(local_tz)
+                        if data_local.date() == evento_data_local and data_local.time().replace(microsecond=0) == evento_inicio_local:
+                            horario_correspondente = datas_disponiveis
 
-                    if horario_correspondente:  # Se houver uma correspondência
-                        if voluntario_id not in voluntarios_processados:
+                    if horario_correspondente:  
                             voluntarios_nome.append({
                                 "nome": voluntario_doc.get("nome", ""),
                                 "id": voluntario_id,
@@ -159,21 +153,20 @@ def buscar_voluntarios(voluntarios, instituicao_evento, evento_data, evento_inic
                                 "numero_celular": numero_celular
                             })
                             voluntarios_processados.add(voluntario_id)
-                        else:
-                            print(f"Voluntário '{voluntario_doc.get('nome', 'Não encontrado')}' já foi adicionado.")
-                    else:
-                        print(f"Voluntário '{voluntario_doc.get('nome', 'Não encontrado')}' indisponível para a data e horário do evento.")
-                else:
+                            voluntario_encontrado = True
+                            break
+                if not voluntario_encontrado:
+                    # Nenhum voluntário disponível para essa habilidade
                     voluntarios_nome.append({
                         "nome": "Não encontrado",
+                        "id": "Não encontrado",
                         "habilidade": habilidade,
                         "numero_celular": "Não encontrado"
-                    })
-            else: 
+                    })  
+            else:
                 print(f"Voluntário no índice {i} não é um dicionário válido!")
-
         return voluntarios_nome
-
+                    
     except Exception as e:
         print(f"Erro ao buscar voluntários disponíveis no Firestore: {e}")
         return []
@@ -211,15 +204,21 @@ def atualizar_voluntarios(event_id, voluntarios):
                     )
 
                     if query:
-                        voluntario_doc = query[0].to_dict()
-                        voluntario_id = query[0].id  # ID do voluntário encontrado
+                        for q_doc in query:
+                            voluntario_doc = q_doc.to_dict()
+                       
+                            if (
+                                voluntario_doc.get("nome") == voluntario.get("nome")
+                                and voluntario_doc.get("nº celular") == voluntario.get("numero_celular")
+                            ):
+                                voluntario["id"] = q_doc.id 
+                                break
 
-                        # Atualizar apenas o campo 'id' no voluntário correspondente
-                        voluntario["id"] = voluntario_id
-
-                    else:
+                        else:
+                            voluntario["id"] = "Não encontrado"
+                    else: 
                         voluntario["id"] = "Não encontrado"
-
+        
                     # Adicionar o voluntário ao array atualizado
                     voluntarios_atualizados.append(voluntario)
 
@@ -337,6 +336,7 @@ def send_message_to_whatsapp(event_id):
         "Content-Type": "application/json"
     }
 
+
     for voluntario in voluntarios_nome:
         nome_message = voluntario.get("nome", "Voluntário")
         numero_celular = voluntario.get("numero_celular", "")
@@ -345,6 +345,7 @@ def send_message_to_whatsapp(event_id):
         if not numero_celular:
             print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
             continue
+
 
         message_data = {
             "messaging_product": "whatsapp",
@@ -382,9 +383,13 @@ def send_message_to_whatsapp(event_id):
             }
         }
 
+
+
+
         # Enviar mensagem para o voluntário
         response = requests.post(url, headers=headers, json=message_data)
         if response.status_code == 200:
+
             print(f"Mensagem enviada para '{nome_message}' com sucesso!")
             
             # Salvar no Firestore
@@ -409,7 +414,9 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         # Buscar voluntários disponíveis com base nos dados do evento
         voluntarios_nome = buscar_voluntarios(
         event_data["voluntarios"],
-        event_data["instituicao"]
+        event_data["instituicao"], 
+        event_data["data"],
+        event_data["inicio"]
         )
 
         # Atualizar os dados de voluntários no evento, se necessário
@@ -492,6 +499,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         response = requests.post(url, headers=headers, json=message_data)
 
         if response.status_code == 200 and button_payload == "sim":
+
             print("Resposta enviada com sucesso!")
             save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload",
             "",    
@@ -521,7 +529,9 @@ def template3(event_id, recipient_id, message_text):
         # Buscar voluntários disponíveis com base nos dados do evento
         voluntarios_nome = buscar_voluntarios(
         event_data["voluntarios"],
-        event_data["instituicao"]
+        event_data["instituicao"], 
+        event_data["data"],
+        event_data["inicio"]
         )
 
         # Atualizar os dados de voluntários no evento, se necessário
@@ -627,7 +637,9 @@ def template4(event_id, recipient_id):
         # Buscar voluntários disponíveis com base nos dados do evento
         voluntarios_nome = buscar_voluntarios(
         event_data["voluntarios"],
-        event_data["instituicao"]
+        event_data["instituicao"], 
+        event_data["data"],
+        event_data["inicio"]
         )
 
         # Atualizar os dados de voluntários no evento, se necessário
@@ -732,7 +744,7 @@ def webhook():
                                     button_payload = message["button"].get("payload")
                                     if button_payload:
                                         print(f"Payload do botão recebido: {button_payload}")
-                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome_message=None, area=None)
+                                        save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome_message=None, area=None, message_id=None)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(event_id, sender_id, button_payload)
                                         # Continuar a lógica com base no payload
@@ -742,6 +754,7 @@ def webhook():
                                         elif user_state.get(sender_id) == "awaiting_template3_response":
                                             template4(event_id,sender_id)
                                             user_state[sender_id] = None
+
                                 else:
                                     message_text = message.get("text", {}).get("body", "").lower()
                                     save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome_message=None, area=None)
