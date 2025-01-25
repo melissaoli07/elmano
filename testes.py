@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOyRw0Y54UqkFRiTWBSQCct6gbJAg1ZBpmR9xVUkoHtCwDWPNiv1tZB1qjB9EOCcZAsBkFVnbfyr5e6i97ZBBVB9i9ZBAd1LZAHxrtFUjnftbI7by0TAGThEN7vYcB5k4MhldMXSrgWFW6vZBCUlttgpaOxLZCvfT9XSjuPCyu8hVkh61u2biLfbxb4CJiNoM5O9vw1pOnW9yaZCzBbwiY5VZCl2xAZD"
+access_token = "EAATXaSQjmX8BO3CZADlx7Tv4wwbwgcG7crQmeJoCt9sLEVOTV9j2jkry1xZBaGLTLlUireIjluNayLd9l6U5F3tW0JQpVGI2rAl9JfQVwNjaMMcGCZABiMjUncB5mtXR3b8aEKPZAlZBbVbKv5T3XmSdFZBNCC1RApiZCMSZCVl22hvbvVcZBLQgzYOvTQizZBWwCO672W1alh4qQmAZC7paoVCZAGrDmn2iNiD58IwZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -438,6 +438,18 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         print("Erro: Campos obrigatórios estão faltando.")
         return
     
+    # Verificar se o recipient_id está na lista de voluntários
+    voluntario_atual = next(
+        (vol for vol in voluntarios_nome if vol.get("numero_celular") == recipient_id),
+        None
+    )
+    if not voluntario_atual:
+        print(f"Erro: Voluntário com número {recipient_id} não encontrado na lista.")
+        return
+    
+    nome_message = voluntario_atual.get("nome", "Voluntário")
+    numero_celular = voluntario_atual.get("numero_celular", "")
+    area = voluntario_atual.get("habilidade", "Não especificada")
 
     url = f"https://graph.facebook.com/v17.0/{phone_number_id}/messages"
     headers = {
@@ -445,63 +457,56 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
         "Content-Type": "application/json"
     }
 
-    for voluntario in voluntarios_nome:
-        nome_message = voluntario.get("nome", "Voluntário")
-        numero_celular = voluntario.get("numero_celular", "")
-        area = voluntario.get("habilidade", "Não especificada")
 
-        if not numero_celular:
-            print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
-            continue
     
-        message_data = {}
+    message_data = {}
 
-        # Verificar se a mensagem é "sim" 
-        if button_payload == "sim":
-            message_data = {
-                "messaging_product": "whatsapp",
-                "to": numero_celular,
-                "type": "template",
-                "template": {
-                    "name": "template_22_cargo",  
-                    "language": {
-                        "code": "pt_BR"  
-                    },
-                    "components": [
-                        {
-                            "type": "body",
-                            "parameters": [
+    # Verificar se a mensagem é "sim" 
+    if button_payload == "sim":
+        message_data = {
+            "messaging_product": "whatsapp",
+            "to": numero_celular,
+            "type": "template",
+            "template": {
+                "name": "template_22_cargo",  
+                "language": {
+                    "code": "pt_BR"  
+                },
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
                             {"type": "text", "text": nome_message},
                             {"type": "text", "text": data},
                             {"type": "text", "text": inicio},
                             {"type": "text", "text": local},
                             {"type": "text", "text": termino},
                             {"type": "text", "text": area}
-                            ]
-                        }
-                    ]
-                }
+                        ]
+                    }
+                ]
             }
-            # Atualizar o estado do usuário para aguardar resposta ao template2
-            user_state[recipient_id] = "awaiting_template2_response"
+        }
+        # Atualizar o estado do usuário para aguardar resposta ao template2
+        user_state[recipient_id] = "awaiting_template2_response"
             
-        elif button_payload == "nao":
-            message_data = {
-                "messaging_product": "whatsapp",
-                "to": numero_celular,
-                "type": "text",
-                "text": {
-                    "body": "Ok. Obrigada pela resposta."
-                }
+    elif button_payload == "nao":
+        message_data = {
+            "messaging_product": "whatsapp",
+            "to": numero_celular,
+            "type": "text",
+            "text": {
+                "body": "Ok. Obrigada pela resposta."
             }
+        }
 
-        # Enviar a mensagem
-        response = requests.post(url, headers=headers, json=message_data)
+    # Enviar a mensagem
+    response = requests.post(url, headers=headers, json=message_data)
 
-        if response.status_code == 200 and button_payload == "sim":
+    if response.status_code == 200 and button_payload == "sim":
 
-            print("Resposta enviada com sucesso!")
-            save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload",
+        print("Resposta enviada com sucesso!")
+        save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload",
             "",    
             event_data['data'], 
             event_data['inicio'],
@@ -509,13 +514,13 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
             event_data['local'], 
             nome_message=nome_message, area=area)
 
-            atualizar_voluntarios(event_id, voluntarios_nome)
+        atualizar_voluntarios(event_id, voluntarios_nome)
 
-        elif response.status_code == 200 and button_payload == "nao":
-            print("Resposta de agradecimento enviada com sucesso!")
-            save_message_to_firestore("15551910903", "sent", numero_celular, message_text="Ok. Obrigada pela resposta.")
-        else:
-            print("Erro ao enviar a resposta:", response.json())
+    elif response.status_code == 200 and button_payload == "nao":
+        print("Resposta de agradecimento enviada com sucesso!")
+        save_message_to_firestore("15551910903", "sent", numero_celular, message_text="Ok. Obrigada pela resposta.")
+    else:
+        print("Erro ao enviar a resposta:", response.json())
 
 
 
