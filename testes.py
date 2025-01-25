@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO3CZADlx7Tv4wwbwgcG7crQmeJoCt9sLEVOTV9j2jkry1xZBaGLTLlUireIjluNayLd9l6U5F3tW0JQpVGI2rAl9JfQVwNjaMMcGCZABiMjUncB5mtXR3b8aEKPZAlZBbVbKv5T3XmSdFZBNCC1RApiZCMSZCVl22hvbvVcZBLQgzYOvTQizZBWwCO672W1alh4qQmAZC7paoVCZAGrDmn2iNiD58IwZD"
+access_token = "EAATXaSQjmX8BOZBggu3OI9N2Fzrma41m1g73V2yER2TubUgXE4YYvhGoIzFTGEZCWXZAlfZBTPVKS6XHgOUkoCATZA14iPAlNPlEwJBu6pZBZAQA5YFIQVZCzZClHAvGjqMFhnavC9SZBVVpuiWNhHZCEv1rhi7d4VY0otAr4iXDWXr34kUz9JhTYrZCiFqfumU3BdEA6S61v57XVuhrFhld9ZBRFZAVExZCvdEt2issaUZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -434,18 +434,27 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
     termino = event_data["termino"]
     local = event_data["local"]
 
-    if not all([evento, data, inicio, termino, local]):
-        print("Erro: Campos obrigatórios estão faltando.")
-        return
-    
-    # Verificar se o recipient_id está na lista de voluntários
-    voluntario_atual = next(
-        (vol for vol in voluntarios_nome if vol.get("numero_celular") == recipient_id),
-        None
-    )
-    if not voluntario_atual:
-        print(f"Erro: Voluntário com número {recipient_id} não encontrado na lista.")
-        return
+    # Se for a primeira mensagem (estado inicial), associar o voluntário ao recipient_id
+    if recipient_id not in user_state:
+        voluntario_atual = next(
+            (vol for vol in voluntarios_nome if vol.get("numero_celular") == recipient_id),
+            None
+        )
+        if not voluntario_atual:
+            print(f"Erro: Voluntário com número {recipient_id} não encontrado na lista.")
+            return
+
+        # Armazenar os dados do voluntário no estado
+        user_state[recipient_id] = {
+            "state": "awaiting_template2_response",
+            "voluntario": voluntario_atual
+        }
+    else:
+        # Recuperar os dados do voluntário a partir do estado
+        voluntario_atual = user_state[recipient_id].get("voluntario")
+        if not voluntario_atual:
+            print(f"Erro: Dados do voluntário não encontrados para o número {recipient_id}.")
+            return
     
     nome_message = voluntario_atual.get("nome", "Voluntário")
     numero_celular = voluntario_atual.get("numero_celular", "")
