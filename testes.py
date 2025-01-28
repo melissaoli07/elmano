@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO0dF1cVRlM4yRoYEblNNEvzGZCKQmi5gSj6ntKnxHhPZBi10ZC2vop4zFlCAtHXZAIdLUOh6NZADte1VOWeMpC6jDVZCnjmSh5swsqWR6FiTfidZBkfSqKZAcvav7K720tiZA61F35slzDzCJpN9OZCCR8TWarjyoFRzgSXrMWZCWREhN22hDUfVr1GXTIqv0TemWJ5bV98xlZCJe2av9rMjhLFNakkZD"
+access_token = "EAATXaSQjmX8BO71uHTZAuSD6b9aF6Ceua7dZCl3IRyGSyiq6UrgjzaDCfUJ3z4D9kDvhovHZC1yPyOZChj3NzVX6Ac0ZBDYHyiGINaoZBJSZBJpk8pZCL0BSBJkqkz1qlFOZBikVCMZCXZAfVScDjDIx2kfHMfOZCEILXUrptloUC34C9J8ytqJKQeZBgFTqu8sZCjxkmfE0kwtLJXDUhhpMHQhvZAHj70fypkubgtKMp0p"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -468,8 +468,6 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
             print(f"Erro: Formato inesperado em user_state para o número {recipient_id}.")
             return
     
-    
-        print("MELISSA:", voluntarios_nome)
 
 
     nome_message = voluntario_atual.get("nome", "Voluntário")
@@ -603,7 +601,7 @@ def template3(event_id, recipient_id, message_text):
 
         # Armazenar os dados do voluntário no estado
         user_state[recipient_id] = {
-            "state": "awaiting_template2_response",
+            "state": "awaiting_template3_response",
             "voluntario": voluntario_atual
         }
     
@@ -848,15 +846,11 @@ def webhook():
                                         save_message_to_firestore(event_id, sender_id, "received", recipient_id, message_text, button_payload, evento=None, data=data, inicio=None, termino=None, local=None, nome_message=None, area=None, message_id=None)
                                         # Lógica com base no payload do botão
                                         reply_to_whatsapp_message(event_id, sender_id, button_payload)
-                                        print("oiiiiiiiiiiiiiii")
                                         # Continuar a lógica com base no payload
                                         # Verificando se o estado do usuário está correto e o payload é o esperado
                                         if user_state.get(sender_id, {}).get("state") == "awaiting_template2_response" and button_payload == "Tudo certo!":
-                                            print("helloooooo")
                                             template3(event_id, sender_id, "Tudo certo!")
-                                            user_state[sender_id] = {"state": "awaiting_template3_response"}
                                         elif user_state.get(sender_id, {}).get("state") == "awaiting_template3_response":
-                                            print("byeeeeeee")
                                             template4(event_id, sender_id)
                                             user_state[sender_id] = None
 
