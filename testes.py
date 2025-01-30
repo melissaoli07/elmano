@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO71uHTZAuSD6b9aF6Ceua7dZCl3IRyGSyiq6UrgjzaDCfUJ3z4D9kDvhovHZC1yPyOZChj3NzVX6Ac0ZBDYHyiGINaoZBJSZBJpk8pZCL0BSBJkqkz1qlFOZBikVCMZCXZAfVScDjDIx2kfHMfOZCEILXUrptloUC34C9J8ytqJKQeZBgFTqu8sZCjxkmfE0kwtLJXDUhhpMHQhvZAHj70fypkubgtKMp0p"
+access_token = "EAATXaSQjmX8BO9nHqawsBDH2ZApZCtFMQrb8A9PjxYWqadeFj1fDvcixJ1axLIJ7OvTtKlBsKRrqhQurr5uBGGffW19TKKMbKFicRJlwWY2sd2yuJS2RXzZCUQRacCFKSGoDY5nw9hWN0ZA2euHi3vVrHxjRbs0x3Rm5GTRGlE4XrDNc30MTZAeDG4hNFwfOTAlApzrRN4NiYb2NbwXOMLEZAO6Ioom1kXGDgZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -648,9 +648,9 @@ def template3(event_id, recipient_id, message_text):
                         "parameters": [
                             {"type": "text", "text": nome_message}, 
                             {"type": "text", "text": data},
-                            {"type": "text", "text": inicio},
-                            {"type": "text", "text": local},
                             {"type": "text", "text": termino},
+                            {"type": "text", "text": local},
+                            {"type": "text", "text": inicio},
                             {"type": "text", "text": area}
                         ]
                     }
