@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO4FTDCJf4BPZCbqdebGLcZBgaj4Ba8hLdRUu8cAAzZCa4CDDZAZAQ1LaD3QoUhvRTuPAvBiaT2ABuajuN8O9YLFdFOMTVTJw2ibQ6Os20C8aOOYjabxWokAzEZBTwGNXGNhuDygY4QcDav3yYt5V2lXwbDZCE8WFKZCcn3jRNq34YTJgbrLZA6luryOMDpvv8ng1vORnYXSWZAzs22h3v2nz2umIEZD"
+access_token = "EAATXaSQjmX8BOx1LeQ7yXVq7T1pmElfzJouArFYGWfY5gZBY5J0CWX3jkAZCoU0SOVva4O2JNzKpsz5XDKoyFIACldSXZA0LZCcl6sM7wYuCfNCXjrk3WERY6nL0ncdUUcseHF4SYxVYKd3pek4uFu50WOdveAEVIBIK97qtpc7auGg0kRIfwIwWXnZB47fLRQqsPJLSybQb1qpZAgWzjZCcxuHu5cHRZBAZCIXoZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -173,29 +173,58 @@ def buscar_voluntarios(voluntarios, instituicao_evento, evento_data, evento_inic
 
 
 
-
-
 '''
-def atualizar_voluntarios(event_id, voluntarios):
+
+def atualizar_voluntarios2(event_id, voluntarios):  
     try:
-        # Referência ao documento no Firestore
         doc_ref = db.collection("evento").document(event_id)
         doc = doc_ref.get()
 
-        if doc.exists:
-            data = doc.to_dict()
-            voluntarios_atualizados = []
+        if not doc.exists:
+            print("Documento do evento não encontrado!")
+            return
 
-            if "voluntarios" in data:
-                for i, voluntario in enumerate(voluntarios):
-                    if not isinstance(voluntario, dict):
-                        print(f"Erro: Voluntário no índice {i} não é um dicionário válido: {voluntario}")
-                        continue
+        data = doc.to_dict()
+        event_data = pegar_dados_evento(event_id)
 
-                    habilidade = voluntario.get("habilidade", "")
-                    instituicao_evento = data.get("instituição", "")
+        if not event_data:
+            print("Dados do evento não encontrados!")
+            return
 
-                    # Buscar na coleção 'voluntários' por documentos com a mesma habilidade e instituição
+        voluntarios_nome = buscar_voluntarios(
+            event_data["voluntarios"],
+            event_data["instituicao"], 
+            event_data["data"],
+            event_data["inicio"]
+        )
+
+        voluntarios_existentes = data.get("voluntarios", [])
+
+        if not voluntarios_existentes:
+            print("Nenhum voluntário encontrado no evento.")
+            return
+
+        instituicao_evento = data.get("instituição", "")
+
+        # Criar cópia para evitar sobrescrita da lista original
+        voluntarios_atualizados = voluntarios_nome.copy()
+        voluntarios_nao_encontrados = []  # Lista para armazenar os voluntários "Não encontrado"
+        
+        # Contagem de "Não encontrado"
+        for v_registro in voluntarios_atualizados:
+            if v_registro.get("id") == "Não encontrado":
+                voluntarios_nao_encontrados.append(v_registro)
+
+        # Se houver voluntários "Não encontrado", faça as atualizações necessárias
+        if voluntarios_nao_encontrados:
+            print(f"Encontrados {len(voluntarios_nao_encontrados)} voluntários 'Não encontrado'.")
+            
+            for i, v_registro in enumerate(voluntarios_atualizados):
+                id_atual = v_registro.get("id", "")
+                habilidade = v_registro.get("habilidade", "")
+                
+                # Atualiza apenas voluntários "Não encontrado"
+                if id_atual == "Não encontrado":
                     query = (
                         db.collection("voluntários")
                         .where("habilidades", "array_contains", habilidade)
@@ -203,39 +232,53 @@ def atualizar_voluntarios(event_id, voluntarios):
                         .get()
                     )
 
+                    id_encontrado = "Não encontrado"
+                    nome = v_registro.get("nome", "Não encontrado")
+                    numero_celular = v_registro.get("numero_celular", "Não encontrado")
+
                     if query:
                         for q_doc in query:
                             voluntario_doc = q_doc.to_dict()
-                       
+
                             if (
-                                voluntario_doc.get("nome") == voluntario.get("nome")
-                                and voluntario_doc.get("nº celular") == voluntario.get("numero_celular")
+                                voluntario_doc.get("nome") == nome
+                                and voluntario_doc.get("nº celular") == numero_celular
                             ):
-                                voluntario["id"] = q_doc.id 
+                                id_encontrado = q_doc.id
                                 break
 
-                        else:
-                            voluntario["id"] = "Não encontrado"
-                    else: 
-                        voluntario["id"] = "Não encontrado"
+                    # Atualiza o voluntário encontrado na lista
+                    voluntarios_atualizados[i] = {
+                        "nome": nome,
+                        "id": id_encontrado,
+                        "habilidade": habilidade,
+                        "numero_celular": numero_celular
+                    }
+                    print(f"Voluntário atualizado: {voluntarios_atualizados[i]}")
         
-                    # Adicionar o voluntário ao array atualizado
-                    voluntarios_atualizados.append(voluntario)
+            # Atualizar no Firestore somente os voluntários que foram alterados (com "Não encontrado")
+            for v_registro in voluntarios_atualizados:
+                if v_registro.get("id") == "Não encontrado":
+                    # Encontra o voluntário correto na lista original
+                    index = next(
+                        (index for (index, d) in enumerate(voluntarios_existentes) 
+                        if d["habilidade"] == v_registro["habilidade"] and d["id"] == "Não encontrado"), 
+                        None
+                    )
+                    if index is not None:
+                        # Atualiza apenas o voluntário correspondente
+                        voluntarios_existentes[index] = v_registro
 
-                # Atualizar o array de voluntários no Firestore com os dados modificados
-                doc_ref.update({"voluntarios": voluntarios_atualizados})
-
-                print("Voluntários atualizados:", voluntarios_atualizados)
-
-            else:
-                print("Nenhum voluntário encontrado no evento.")
+            # Salvar a lista de voluntários atualizada no Firestore
+            doc_ref.update({"voluntarios": voluntarios_existentes})
+            print("Atualização salva no Firestore!")
 
         else:
-            print("Documento do evento não encontrado!")
+            print("Nenhum voluntário com ID 'Não encontrado'. Nenhuma atualização necessária.")
 
     except Exception as e:
         print(f"Erro ao atualizar voluntários no Firestore: {e}")
-
+    
 '''
 
 
@@ -305,154 +348,8 @@ def atualizar_voluntarios(event_id, voluntarios):
         print(f"Erro ao atualizar voluntários no Firestore: {e}")
 
 
-'''
-def atualizar_voluntarios(event_id, voluntarios):
-    try:
-        # Referência ao documento no Firestore
-        doc_ref = db.collection("evento").document(event_id)
-        doc = doc_ref.get()
 
-        if doc.exists:
-            data = doc.to_dict()
-            voluntarios_existentes = data.get("voluntarios", [])
 
-            if not voluntarios_existentes:
-                print("Nenhum voluntário encontrado no evento.")
-                return
-
-            # 1️⃣ Primeiro, marca como "Não encontrado" os voluntários sem ID
-            for v in voluntarios_existentes:
-                if not v.get("id") and v.get("habilidade"):  # Se não tem ID, mas tem habilidade
-                    v["id"] = "Não encontrado"
-
-            # Atualiza o Firestore para garantir que os "Não encontrados" sejam salvos
-            doc_ref.update({"voluntarios": voluntarios_existentes})
-
-            # 2️⃣ Agora busca os voluntários reais no Firestore e preenche os IDs corretamente
-            for i, voluntario in enumerate(voluntarios):
-                if not isinstance(voluntario, dict):
-                    print(f"Erro: Voluntário no índice {i} não é um dicionário válido: {voluntario}")
-                    continue
-
-                habilidade = voluntario.get("habilidade", "")
-                instituicao_evento = data.get("instituição", "")
-
-                # Buscar na coleção 'voluntários' por documentos com a mesma habilidade e instituição
-                query = (
-                    db.collection("voluntários")
-                    .where("habilidades", "array_contains", habilidade)
-                    .where("instituicao", "==", instituicao_evento)
-                    .get()
-                )
-
-                if query:
-                    for q_doc in query:
-                        voluntario_doc = q_doc.to_dict()
-                        if (
-                            voluntario_doc.get("nome") == voluntario.get("nome")
-                            and voluntario_doc.get("nº celular") == voluntario.get("nº celular")
-                        ):
-                            id_encontrado = q_doc.id
-                            nome = voluntario_doc.get("nome")
-                            numero_celular = voluntario_doc.get("nº celular")
-
-                            # Atualiza apenas o voluntário correto com o ID encontrado
-                            for v in voluntarios_existentes:
-                                if v.get("habilidade") == habilidade and v.get("id") == "Não encontrado":
-                                    v["id"] = id_encontrado
-                                    v["nome"] = nome
-                                    v["numero_celular"] = numero_celular
-                                    break  # Para não modificar outros registros com a mesma habilidade
-
-            # Atualiza o Firestore com os IDs dos voluntários encontrados
-            doc_ref.update({"voluntarios": voluntarios_existentes})
-
-            print("Voluntários atualizados:", voluntarios_existentes)
-
-        else:
-            print("Documento do evento não encontrado!")
-
-    except Exception as e:
-        print(f"Erro ao atualizar voluntários no Firestore: {e}")
-'''
-
-'''
-def atualizar_voluntarios(event_id, voluntarios):
-    try:
-        # Referência ao documento no Firestore
-        doc_ref = db.collection("evento").document(event_id)
-        doc = doc_ref.get()
-
-        if doc.exists:
-            data = doc.to_dict()
-            voluntarios_existentes = data.get("voluntarios", [])
-
-            if not voluntarios_existentes:
-                print("Nenhum voluntário encontrado no evento.")
-                return
-
-            # 1️⃣ Atualizar "id" para "Não encontrado" no voluntário com a habilidade correta
-            for v in voluntarios_existentes:
-                if not v.get("id") and v.get("habilidade"):  # Se o ID estiver vazio e tem habilidade
-                    for voluntario in voluntarios:
-                        if voluntario.get("habilidade") == v.get("habilidade"):
-                            v["id"] = "Não encontrado"
-                            break  # Não precisa verificar outros se já encontrou a habilidade
-            # Atualiza o Firestore com os "Não encontrados"
-            doc_ref.update({"voluntarios": voluntarios_existentes})
-
-            # 2️⃣ Agora, procurar os voluntários no Firestore e atualizar os registros corretamente
-            for i, voluntario in enumerate(voluntarios):
-                if not isinstance(voluntario, dict):
-                    print(f"Erro: Voluntário no índice {i} não é um dicionário válido: {voluntario}")
-                    continue
-
-                habilidade = voluntario.get("habilidade", "")
-                instituicao_evento = data.get("instituição", "")
-
-                # Buscar na coleção 'voluntários' por documentos com a mesma habilidade e instituição
-                query = (
-                    db.collection("voluntários")
-                    .where("habilidades", "array_contains", habilidade)
-                    .where("instituicao", "==", instituicao_evento)
-                    .get()
-                )
-
-                id_encontrado = "Não encontrado"
-                nome = ""
-                numero_celular = ""
-
-                if query:
-                    for q_doc in query:
-                        voluntario_doc = q_doc.to_dict()
-                        if (
-                            voluntario_doc.get("nome") == voluntario.get("nome")
-                            and voluntario_doc.get("nº celular") == voluntario.get("numero_celular")
-                        ):
-                            id_encontrado = q_doc.id
-                            nome = voluntario_doc.get("nome")
-                            numero_celular = voluntario_doc.get("nº celular")
-                            break
-
-                # 3️⃣ Atualizar o ID no voluntário correto dentro do array existente
-                for v in voluntarios_existentes:
-                    if v.get("habilidade") == habilidade and v.get("id") == "Não encontrado":
-                        v["id"] = id_encontrado
-                        v["nome"] = nome
-                        v["numero_celular"] = numero_celular
-                        break  # Não modificar outros voluntários com a mesma habilidade
-
-            # Atualiza o Firestore com os dados corretos dos voluntários
-            doc_ref.update({"voluntarios": voluntarios_existentes})
-
-            print("Voluntários atualizados:", voluntarios_existentes)
-
-        else:
-            print("Documento do evento não encontrado!")
-
-    except Exception as e:
-        print(f"Erro ao atualizar voluntários no Firestore: {e}")
-'''
 
 
 
@@ -565,6 +462,7 @@ def send_message_to_whatsapp(event_id):
             print(f"Erro: Número de celular não encontrado para o voluntário '{nome_message}'.")
             continue
 
+        
 
         message_data = {
             "messaging_product": "whatsapp",
@@ -618,8 +516,8 @@ def send_message_to_whatsapp(event_id):
                                     event_data['local'], nome_message=nome_message, area=area)
             
             
-            # Atualizar os dados do evento no Firestore
-            #atualizar_voluntarios(event_id, voluntarios_nome)
+            
+
         else:
             print(f"Erro ao enviar mensagem para '{nome_message}':", response.json())
 
@@ -1030,7 +928,10 @@ def template4(event_id, recipient_id):
         event_data['local'],   
         nome_message=nome_message, area=area)
             
+       
         atualizar_voluntarios(event_id, [voluntario_atual])
+        
+        
 
     else:
         print("Erro ao enviar Template 4:", response.json())
