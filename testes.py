@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BOx1LeQ7yXVq7T1pmElfzJouArFYGWfY5gZBY5J0CWX3jkAZCoU0SOVva4O2JNzKpsz5XDKoyFIACldSXZA0LZCcl6sM7wYuCfNCXjrk3WERY6nL0ncdUUcseHF4SYxVYKd3pek4uFu50WOdveAEVIBIK97qtpc7auGg0kRIfwIwWXnZB47fLRQqsPJLSybQb1qpZAgWzjZCcxuHu5cHRZBAZCIXoZD"
+access_token = "EAATXaSQjmX8BO7fmRC8hR3DD6VPqtFv0beoEc7BKfs5ZCCG69SpPlVJOEQFZCWWpHMKlfDIcls5GvdyPHxCxyvhp1eFiNAhrolil1Kjy9IC6P8QVNcOuNsBEMd7nkBFXcq85jm8KF6SWEMzCXg1JVopnJjBCxawSdyeSd9bcBVQH8fZBzyJdBJc7eGUYypMtviaC5O2Xj9dMrZBLcaCZBPTJxuiTl5LG9xOMZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -59,7 +59,7 @@ def pegar_dados_evento(event_id):
             # Retornar os dados do evento com a formatação necessária
             return {
                 "evento": data.get("evento", ""),
-                "data": convert_to_local_date(data.get("data")),
+                "data": convert_to_local_date(data.get("inicio")),
                 "inicio": convert_to_local(data.get("inicio")),
                 "termino": convert_to_local(data.get("término")),
                 "local": data.get("local", ""),
@@ -663,7 +663,7 @@ def reply_to_whatsapp_message(event_id, recipient_id, button_payload):
 
     elif response.status_code == 200 and button_payload == "nao":
         print("Resposta de agradecimento enviada com sucesso!")
-        save_message_to_firestore("15551910903", "sent", numero_celular, message_text="Ok. Obrigada pela resposta.")
+        save_message_to_firestore("15551910903", "sent", "", "", "", "", "", "", "", "", "", numero_celular, "Ok. Obrigada pela resposta.")
     else:
         print("Erro ao enviar a resposta:", response.json())
 
@@ -781,7 +781,7 @@ def template3(event_id, recipient_id, message_text):
         }
             
             
-    else:
+    elif message_text.lower() in ["não conseguirei estar..."]:
         message_data = {
             "messaging_product": "whatsapp",
             "to": numero_celular,
@@ -791,12 +791,12 @@ def template3(event_id, recipient_id, message_text):
             }
         }
 
-   
+    
 
 
     response = requests.post(url, headers=headers, json=message_data)
 
-    if response.status_code == 200:
+    if response.status_code == 200 and message_text.lower() in ["tudo certo!"]:
         print("Resposta enviada com sucesso!")
         save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload",
         "",    
@@ -807,13 +807,17 @@ def template3(event_id, recipient_id, message_text):
         nome_message=nome_message, area=area)
 
         #atualizar_voluntarios(event_id, voluntarios_nome)
+    elif response.status_code == 200 and message_text.lower() in ["não conseguirei estar..."]:
+        print("Resposta de agradecimento enviada com sucesso!")
+        save_message_to_firestore("15551910903", "sent", "", "", "", "", "", "", "", "", "", numero_celular, "Ok. Obrigada pela resposta.")
+
     else:
         print("Erro ao enviar a resposta:", response.json())
 
 
 
 # Template 4
-def template4(event_id, recipient_id):
+def template4(event_id, recipient_id, message_text):
 
     # Buscar os dados do evento no Firestore
     event_data = pegar_dados_evento(event_id)
@@ -889,36 +893,45 @@ def template4(event_id, recipient_id):
     }
 
         
-
-
-    message_data = {
-        "messaging_product": "whatsapp",
-        "to": numero_celular,  
-        "type": "template",
-        "template": {
-            "name": "template_4_cargo",  
-            "language": {
-                "code": "pt_BR"  
-            },
-            "components": [
-                {
-                    "type": "body",
-                    "parameters": [
-                    {"type": "text", "text": nome_message},
-                    {"type": "text", "text": inicio},
-                    {"type": "text", "text": local}, 
-                    {"type": "text", "text": termino},
-                    {"type": "text", "text": area}
-                    ]
-                }
-            ]
+    if message_text.lower() in ["tudo certo!"]:
+        message_data = {
+            "messaging_product": "whatsapp",
+            "to": numero_celular,  
+            "type": "template",
+            "template": {
+                "name": "template_4_cargo",  
+                "language": {
+                    "code": "pt_BR"  
+                },
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                        {"type": "text", "text": nome_message},
+                        {"type": "text", "text": inicio},
+                        {"type": "text", "text": local}, 
+                        {"type": "text", "text": termino},
+                        {"type": "text", "text": area}
+                        ]
+                    }
+                ]
+            }
         }
-    }
+
+    elif message_text.lower() in ["não conseguirei..."]:
+        message_data = {
+            "messaging_product": "whatsapp",
+            "to": numero_celular,
+            "type": "text",
+            "text": {
+                "body": "Ok. Obrigada pela resposta."
+            }
+        }
 
 
     response = requests.post(url, headers=headers, json=message_data)
 
-    if response.status_code == 200:
+    if response.status_code == 200 and message_text.lower() in ["tudo certo!"]:
         print("Template 4 enviado com sucesso!")
             
         save_message_to_firestore(event_id, "15551910903", "sent", numero_celular, "message_text", "button_payload", 
@@ -931,7 +944,10 @@ def template4(event_id, recipient_id):
        
         atualizar_voluntarios(event_id, [voluntario_atual])
         
-        
+    elif response.status_code == 200 and message_text.lower() in ["não conseguirei..."]:
+        print("Resposta de agradecimento enviada com sucesso!")
+        save_message_to_firestore("15551910903", "sent", "", "", "", "", "", "", "", "", "", numero_celular, "Ok. Obrigada pela resposta.")
+
 
     else:
         print("Erro ao enviar Template 4:", response.json())
@@ -970,8 +986,13 @@ def webhook():
                                         # Verificando se o estado do usuário está correto e o payload é o esperado
                                         if user_state.get(sender_id, {}).get("state") == "awaiting_template2_response" and button_payload == "Tudo certo!":
                                             template3(event_id, sender_id, "Tudo certo!")
-                                        elif user_state.get(sender_id, {}).get("state") == "awaiting_template3_response":
-                                            template4(event_id, sender_id)
+                                        elif user_state.get(sender_id, {}).get("state") == "awaiting_template2_response" and button_payload == "Não conseguirei estar...":
+                                            template3(event_id, sender_id, "Não conseguirei estar...")
+                                        elif user_state.get(sender_id, {}).get("state") == "awaiting_template3_response" and button_payload == "Tudo certo!":
+                                            template4(event_id, sender_id, "Tudo certo!")
+                                            user_state[sender_id] = None
+                                        elif user_state.get(sender_id, {}).get("state") == "awaiting_template3_response" and button_payload == "Não conseguirei...":
+                                            template4(event_id, sender_id, "Não conseguirei...")
                                             user_state[sender_id] = None
 
                                 else:
