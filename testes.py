@@ -19,7 +19,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Variáveis
-access_token = "EAATXaSQjmX8BO7fmRC8hR3DD6VPqtFv0beoEc7BKfs5ZCCG69SpPlVJOEQFZCWWpHMKlfDIcls5GvdyPHxCxyvhp1eFiNAhrolil1Kjy9IC6P8QVNcOuNsBEMd7nkBFXcq85jm8KF6SWEMzCXg1JVopnJjBCxawSdyeSd9bcBVQH8fZBzyJdBJc7eGUYypMtviaC5O2Xj9dMrZBLcaCZBPTJxuiTl5LG9xOMZD"
+access_token = "EAATXaSQjmX8BO7ZBLZAlb5TVuDXphrFw66d8BzZByt1xrTBjzoUEGxtna12BfL7ESEseORe1Q5X5Fyjmjkj1XPBWQsYAWGGqdjjrA0Gf4AUkZCXZAPfrw1A1fUdTyjZCBl0ZAD516X8aZBc2ZBfV5YZAyVEwuWPFGMK3dNlfBE7hE7TprlSEgiqojbJlddehutrZA7wMcMKoWIBABPrpEmtZB21D0ixBuBjApYH4Y7sFGgZDZD"
 phone_number_id = "434398029764267"
 
 # Armazenamento do estado da conversa para cada usuário
@@ -732,6 +732,7 @@ def template3(event_id, recipient_id, message_text):
             print(f"Erro: Formato inesperado em user_state para o número {recipient_id}.")
             print(f"Dados em user_state: {recipient_state}")
             return
+        
     
 
     nome_message = voluntario_atual.get("nome", "Voluntário")
